@@ -1,0 +1,5 @@
+Makefile linguist-detectable=false
+Dockerfile linguist-detectable=false
+Containerfile linguist-detectable=false
+*.sh linguist-detectable=false
+*.py linguist-detectable=false

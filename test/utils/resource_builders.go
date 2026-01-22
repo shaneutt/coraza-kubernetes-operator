@@ -1,0 +1,162 @@
+/*
+Copyright 2026 Shane Utt.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+// Package utils provides testing utilities for integration and unit tests.
+package utils
+
+import (
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	wafv1alpha1 "github.com/shaneutt/coraza-kubernetes-operator/api/v1alpha1"
+)
+
+// -----------------------------------------------------------------------------
+// Test Resource Builders - RuleSet
+// -----------------------------------------------------------------------------
+
+// RuleSetOptions provides options for creating test RuleSet resources
+type RuleSetOptions struct {
+	Name      string
+	Namespace string
+	Instance  string
+	Rules     []corev1.ObjectReference
+}
+
+// NewTestRuleSet creates a test RuleSet resource with sensible defaults
+func NewTestRuleSet(opts RuleSetOptions) *wafv1alpha1.RuleSet {
+	if opts.Name == "" {
+		opts.Name = "test-ruleset"
+	}
+	if opts.Namespace == "" {
+		opts.Namespace = "default"
+	}
+	if opts.Instance == "" {
+		opts.Instance = "test-instance"
+	}
+	if opts.Rules == nil {
+		opts.Rules = []corev1.ObjectReference{
+			{
+				APIVersion: "v1",
+				Kind:       "ConfigMap",
+				Name:       "test-rules",
+			},
+		}
+	}
+
+	return &wafv1alpha1.RuleSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      opts.Name,
+			Namespace: opts.Namespace,
+		},
+		Spec: wafv1alpha1.RuleSetSpec{
+			Instance: opts.Instance,
+			Rules:    opts.Rules,
+		},
+	}
+}
+
+// NewTestConfigMap creates a test ConfigMap with WAF rules
+func NewTestConfigMap(name, namespace, rules string) *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Data: map[string]string{
+			"rules": rules,
+		},
+	}
+}
+
+// -----------------------------------------------------------------------------
+// Test Resource Builders - Engine
+// -----------------------------------------------------------------------------
+
+// EngineOptions provides options for creating test Engine resources
+type EngineOptions struct {
+	Name                string
+	Namespace           string
+	Instance            string
+	DriverType          wafv1alpha1.EngineDriverType
+	DriverMode          wafv1alpha1.EngineDriverMode
+	WasmImage           string
+	PollIntervalSeconds int32
+	WorkloadLabels      map[string]string
+	IstioMode           wafv1alpha1.IstioIntegrationMode
+	FailurePolicy       wafv1alpha1.FailurePolicy
+}
+
+// NewTestEngine creates a test Engine resource with sensible defaults
+func NewTestEngine(opts EngineOptions) *wafv1alpha1.Engine {
+	if opts.Name == "" {
+		opts.Name = "test-engine"
+	}
+	if opts.Namespace == "" {
+		opts.Namespace = "default"
+	}
+	if opts.Instance == "" {
+		opts.Instance = "test-instance"
+	}
+	if opts.DriverType == "" {
+		opts.DriverType = wafv1alpha1.EngineDriverTypeIstio
+	}
+	if opts.DriverMode == "" {
+		opts.DriverMode = wafv1alpha1.EngineDriverModeWasm
+	}
+	if opts.WasmImage == "" {
+		opts.WasmImage = "oci://fake-registry.io/fake-image:latest"
+	}
+	if opts.PollIntervalSeconds == 0 {
+		opts.PollIntervalSeconds = 5
+	}
+	if opts.WorkloadLabels == nil {
+		opts.WorkloadLabels = map[string]string{"app": "gateway"}
+	}
+	if opts.IstioMode == "" {
+		opts.IstioMode = wafv1alpha1.IstioIntegrationModeGateway
+	}
+	if opts.FailurePolicy == "" {
+		opts.FailurePolicy = wafv1alpha1.FailurePolicyFail
+	}
+
+	return &wafv1alpha1.Engine{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      opts.Name,
+			Namespace: opts.Namespace,
+		},
+		Spec: wafv1alpha1.EngineSpec{
+			Instance: opts.Instance,
+			Driver: wafv1alpha1.DriverConfig{
+				Type: opts.DriverType,
+				Mode: opts.DriverMode,
+				Wasm: &wafv1alpha1.WasmConfig{
+					Image: opts.WasmImage,
+				},
+				RuleSetCacheServer: &wafv1alpha1.RuleSetCacheServerConfig{
+					PollIntervalSeconds: opts.PollIntervalSeconds,
+				},
+				Istio: &wafv1alpha1.IstioConfig{
+					WorkloadSelector: metav1.LabelSelector{
+						MatchLabels: opts.WorkloadLabels,
+					},
+					Mode: opts.IstioMode,
+				},
+			},
+			FailurePolicy: opts.FailurePolicy,
+		},
+	}
+}

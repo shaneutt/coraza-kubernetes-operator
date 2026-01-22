@@ -1,0 +1,3 @@
+resources:
+  - bases/waf.k8s.coraza.io_engines.yaml
+  - bases/waf.k8s.coraza.io_rulesets.yaml

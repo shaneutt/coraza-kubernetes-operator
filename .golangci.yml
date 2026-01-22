@@ -1,0 +1,56 @@
+version: "2"
+run:
+  allow-parallel-runners: true
+linters:
+  default: none
+  enable:
+    - copyloopvar
+    - dupl
+    - errcheck
+    - ginkgolinter
+    - goconst
+    - gocyclo
+    - govet
+    - ineffassign
+    - misspell
+    - nakedret
+    - prealloc
+    - revive
+    - staticcheck
+    - unconvert
+    - unparam
+    - unused
+  settings:
+    staticcheck:
+      checks:
+        - "all"
+        - "-SA1019" # Disable deprecated warnings
+        - "-QF1008" # Disable warnings for embedded field selector
+    revive:
+      rules:
+        - name: comment-spacings
+        - name: import-shadowing
+        - name: exported
+          arguments:
+            - "checkPrivateReceivers"
+            - "sayRepetitiveInsteadOfStutters"
+  exclusions:
+    generated: lax
+    rules:
+      - linters:
+          - dupl
+        path: internal/*
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

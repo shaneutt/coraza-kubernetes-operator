@@ -1,0 +1,116 @@
+name: build-test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    name: build and generate
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v4
+
+      - name: set up go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+
+      - name: build and generate manifests
+        run: make manifests generate
+
+      - name: check for uncommitted changes
+        run: git diff --exit-code || (echo "generated files have uncommitted changes. run 'make manifests generate' and commit the results." && exit 1)
+
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v4
+
+      - name: set up go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+
+      - name: run linter
+        run: make lint
+
+  unit-tests:
+    name: unit tests
+    runs-on: ubuntu-latest
+    needs: [lint]
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v4
+
+      - name: set up go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+
+      - name: run unit tests with coverage
+        run: make test.coverage
+
+      - name: upload coverage to codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage.out
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+
+      - name: upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.out
+
+  integration-tests:
+    name: integration tests
+    runs-on: ubuntu-latest
+    needs: [lint]
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: "recursive"
+
+      - name: set up go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+
+      - name: set up python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.x"
+
+      - name: install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: "latest"
+
+      - name: install helm
+        uses: azure/setup-helm@v4
+        with:
+          version: "latest"
+
+      - name: install kind
+        run: go install sigs.k8s.io/kind@latest
+
+      - name: set up kind cluster
+        run: make cluster.kind
+
+      - name: run integration tests
+        run: make test.integration
+        env:
+          KIND_CLUSTER_NAME: coraza-kubernetes-operator-integration
+
+      - name: clean up kind cluster
+        run: kind delete cluster --name coraza-kubernetes-operator-integration || true

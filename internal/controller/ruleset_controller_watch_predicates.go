@@ -1,0 +1,68 @@
+/*
+Copyright 2026 Shane Utt.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package controller
+
+import (
+	"context"
+
+	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	wafv1alpha1 "github.com/shaneutt/coraza-kubernetes-operator/api/v1alpha1"
+)
+
+// -----------------------------------------------------------------------------
+// RuleSet Controller - Watch Predicates
+// -----------------------------------------------------------------------------
+
+// findRuleSetsForConfigMap maps a ConfigMap to the RuleSets that reference it (if any).
+func (r *RuleSetReconciler) findRuleSetsForConfigMap(ctx context.Context, configMap client.Object) []reconcile.Request {
+	log := logf.FromContext(ctx)
+
+	var ruleSetList wafv1alpha1.RuleSetList
+	if err := r.List(ctx, &ruleSetList, client.InNamespace(configMap.GetNamespace())); err != nil {
+		log.Error(err, "RuleSet: Failed to list RuleSets", "namespace", configMap.GetNamespace())
+		return nil
+	}
+
+	var requests []reconcile.Request
+	for _, ruleSet := range ruleSetList.Items {
+		for _, rule := range ruleSet.Spec.Rules {
+			if rule.Kind == "ConfigMap" && rule.Name == configMap.GetName() {
+				req := ctrl.Request{
+					NamespacedName: types.NamespacedName{
+						Name:      ruleSet.Name,
+						Namespace: ruleSet.Namespace,
+					},
+				}
+				requests = append(requests, req)
+
+				LogInfo(log, req, "RuleSet", "Enqueuing for reconciliation due to ConfigMap change", "configMapName", configMap.GetName())
+				break
+			}
+		}
+	}
+
+	if len(requests) == 0 {
+		LogDebug(log, ctrl.Request{}, "RuleSet", "No RuleSets reference this ConfigMap", "configMapName", configMap.GetName(), "namespace", configMap.GetNamespace())
+	}
+
+	return requests
+}

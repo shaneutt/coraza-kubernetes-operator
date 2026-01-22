@@ -1,0 +1,19 @@
+apiVersion: waf.k8s.coraza.io/v1alpha1
+kind: Engine
+metadata:
+  name: coraza
+spec:
+  instance: default
+  failurePolicy: fail
+  driver:
+    type: istio
+    mode: wasm
+    wasm:
+      image: "oci://ghcr.io/shaneutt/coraza-proxy-wasm:179ea90b2617f557f805fe672daf880c14c6b8b7"
+    ruleSetCacheServer:
+      pollIntervalSeconds: 5
+    istio:
+      mode: gateway
+      workloadSelector:
+        matchLabels:
+          gateway.networking.k8s.io/gateway-name: coraza-gateway

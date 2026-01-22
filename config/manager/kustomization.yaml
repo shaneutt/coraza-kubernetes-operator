@@ -1,0 +1,5 @@
+resources:
+- manager.yaml
+- service.yaml
+- service_entry.yaml
+- destination_rule.yaml
