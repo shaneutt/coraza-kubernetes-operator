@@ -34,6 +34,7 @@ go.work
 !README.md
 !DEVELOPMENT.md
 !SECURITY.md
+!CHANGELOG.md
 
 # Python
 __pycache__/
