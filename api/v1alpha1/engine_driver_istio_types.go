@@ -38,7 +38,7 @@ type IstioDriverConfig struct {
 }
 
 // -----------------------------------------------------------------------------
-// Enngine Driver - Istio Wasm Configuration
+// Engine Driver - Istio Wasm Configuration
 // -----------------------------------------------------------------------------
 
 // IstioWasmConfig defines configuration for deploying the Engine as a WASM
