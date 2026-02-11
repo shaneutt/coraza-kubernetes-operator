@@ -23,6 +23,16 @@ linters:
           lintersConfig:
             defaults:
               preferredDefaultMarker: "kubebuilder:default"
+            conditions:
+              isFirstField: Warn # Require conditions to be the first field in the status struct.
+              usePatchStrategy: Forbid # Forbid patchStrategy markers on the Conditions field.
+              useProtobuf: Forbid # We don't use protobuf, so protobuf tags are not required.
+            optionalfields:
+              pointers:
+                preference: WhenRequired # Always | WhenRequired # Whether to always require pointers, or only when required. Defaults to `Always`.
+                policy: SuggestFix # SuggestFix | Warn # The policy for pointers in optional fields. Defaults to `SuggestFix`.
+              omitempty:
+                policy: SuggestFix # SuggestFix | Warn | Ignore # The policy for omitempty in optional fields. Defaults to `SuggestFix`.
   exclusions:
     generated: strict
     paths-except:
