@@ -1,0 +1,35 @@
+version: "2"
+linters:
+  default: none
+  enable:
+    - kubeapilinter
+  settings:
+    custom:
+      kubeapilinter:
+        type: module
+        description: Kube API LInter lints Kube like APIs based on API conventions and best practices.
+        settings:
+          linters:
+            enable:
+            - "*"
+            disable:
+            # The linters below are disabled because they are intended to verify markers config
+            # and need extra configuration
+            - "conflictingmarkers"
+            - "dependenttags"
+            - "forbiddenmarkers"
+            - "namingconventions"
+            - "preferredmarkers"
+          lintersConfig:
+            defaults:
+              preferredDefaultMarker: "kubebuilder:default"
+  exclusions:
+    generated: strict
+    paths-except:
+      - api/
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+run:
+  timeout: 5m
+  tests: false

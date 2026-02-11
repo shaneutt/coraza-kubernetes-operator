@@ -131,6 +131,11 @@ lint.fix: golangci-lint
 lint.config: golangci-lint
 	"$(GOLANGCI_LINT)" config verify
 
+.PHONY: lint.api
+lint.api: golangci-kube-api-linter
+	"$(GOLANGCI_KUBE_API_LINTER)" run -c ./.golangci-kal.yml ./...
+
+
 # ------------------------------------------------------------------------------
 # Test Cluster
 # ------------------------------------------------------------------------------
@@ -184,10 +189,11 @@ KIND ?= kind
 KUSTOMIZE ?= $(LOCALBIN)/kustomize
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
+GOLANGCI_KUBE_API_LINTER = $(LOCALBIN)/golangci-kube-api-linter
 
 KUSTOMIZE_VERSION ?= v5.7.1
 CONTROLLER_TOOLS_VERSION ?= v0.19.0
-GOLANGCI_LINT_VERSION ?= v2.5.0
+GOLANGCI_LINT_VERSION ?= v2.9.0
 
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE)
@@ -203,6 +209,11 @@ $(CONTROLLER_GEN): $(LOCALBIN)
 golangci-lint: $(GOLANGCI_LINT)
 $(GOLANGCI_LINT): $(LOCALBIN)
 	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/v2/cmd/golangci-lint,$(GOLANGCI_LINT_VERSION))
+
+.PHONY: golangci-kube-api-linter
+golangci-kube-api-linter: $(GOLANGCI_KUBE_API_LINTER)
+$(GOLANGCI_KUBE_API_LINTER): $(LOCALBIN) $(GOLANGCI_LINT)
+	$(GOLANGCI_LINT) custom -v
 
 define go-install-tool
 @[ -f "$(1)-$(3)" ] && [ "$$(readlink -- "$(1)" 2>/dev/null)" = "$(1)-$(3)" ] || { \
