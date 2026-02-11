@@ -31,10 +31,10 @@ import (
 //
 // +kubebuilder:validation:XValidation:rule="[has(self.wasm)].filter(x, x).size() == 1",message="exactly one integration mechanism (Wasm, etc) must be specified"
 type IstioDriverConfig struct {
-	// Wasm configures the Engine to be deployed as a WebAssembly plugin.
+	// wasm configures the Engine to be deployed as a WebAssembly plugin.
 	//
 	// +optional
-	Wasm *IstioWasmConfig `json:"wasm,omitempty"`
+	Wasm *IstioWasmConfig `json:"wasm,omitempty,omitzero"`
 }
 
 // -----------------------------------------------------------------------------
@@ -46,37 +46,38 @@ type IstioDriverConfig struct {
 //
 // +kubebuilder:validation:XValidation:rule="self.mode == 'gateway' ? has(self.workloadSelector) : true",message="workloadSelector is required when mode is gateway"
 type IstioWasmConfig struct {
-	// Mode specifies what mechanism will be used to integrate the WAF with
+	// mode specifies what mechanism will be used to integrate the WAF with
 	// Istio.
 	//
 	// Currently only supports "Gateway" mode, utilizing Gateway API resources.
 	//
-	// +required
+	// +optional
 	// +kubebuilder:default=gateway
-	Mode IstioIntegrationMode `json:"mode"`
+	Mode IstioIntegrationMode `json:"mode,omitempty"`
 
-	// WorkloadSelector specifies the selection criteria for attaching the WAF to
+	// workloadSelector specifies the selection criteria for attaching the WAF to
 	// Istio resources.
 	//
 	// +optional
 	WorkloadSelector *metav1.LabelSelector `json:"workloadSelector,omitempty"`
 
-	// Image is the OCI image reference for the Coraza WASM plugin.
+	// image is the OCI image reference for the Coraza WASM plugin.
 	//
 	// +required
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=1024
 	// +kubebuilder:validation:Pattern=`^oci://`
-	Image string `json:"image"`
+	Image string `json:"image,omitempty"`
 
-	// RuleSetCacheServer contains configuration for the ruleset cache server.
+	// ruleSetCacheServer contains configuration for the ruleset cache server.
 	//
 	// When omitted, no cache server will be used and no rulesets will be
 	// dynamically loaded. This implies that your Engine will be deployed with
 	// all rules statically embedded.
 	//
+	// +kubebuilder:validation:MinProperties=1
 	// +optional
-	RuleSetCacheServer *RuleSetCacheServerConfig `json:"ruleSetCacheServer,omitempty"`
+	RuleSetCacheServer *RuleSetCacheServerConfig `json:"ruleSetCacheServer,omitempty,omitzero"`
 }
 
 // -----------------------------------------------------------------------------
@@ -86,21 +87,21 @@ type IstioWasmConfig struct {
 // IstioIntegrationConfig defines Istio-specific integration options for the
 // Engine.
 type IstioIntegrationConfig struct {
-	// Mode specifies what mechanism will be used to integrate the WAF with
+	// mode specifies what mechanism will be used to integrate the WAF with
 	// Istio.
 	//
 	// Currently only supports "Gateway" mode, utilizing Gateway API resources.
 	//
 	// +required
-	Mode IstioIntegrationMode `json:"mode"`
+	Mode IstioIntegrationMode `json:"mode,omitempty"`
 
-	// WorkloadSelector specifies the selection criteria for attaching the WAF.
+	// workloadSelector specifies the selection criteria for attaching the WAF.
 	//
 	// When mode is "gateway", this selector is used to identify the Gateway
 	// Pods to which the WAF should be attached.
 	//
 	// +required
-	WorkloadSelector metav1.LabelSelector `json:"workloadSelector"`
+	WorkloadSelector metav1.LabelSelector `json:"workloadSelector,omitempty"`
 }
 
 // IstioIntegrationMode specifies what mechanism will be used to integrate the
