@@ -26,8 +26,9 @@ package v1alpha1
 //
 // +kubebuilder:validation:XValidation:rule="[has(self.istio)].filter(x, x).size() == 1",message="exactly one driver must be specified"
 type DriverConfig struct {
-	// Istio configures the Engine to integrate with Istio service mesh.
+	// istio configures the Engine to integrate with Istio service mesh.
 	//
+	// +kubebuilder:validation:MinProperties=0
 	// +optional
-	Istio *IstioDriverConfig `json:"istio,omitempty"`
+	Istio *IstioDriverConfig `json:"istio,omitempty,omitzero"`
 }

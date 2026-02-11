@@ -42,20 +42,21 @@ func init() {
 type RuleSet struct {
 	metav1.TypeMeta `json:",inline"`
 
-	// ObjectMeta is a standard object metadata.
+	// metadata is a standard object metadata.
 	//
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitzero"`
 
-	// Spec defines the desired state of RuleSet.
+	// spec defines the desired state of RuleSet.
 	//
 	// +required
-	Spec RuleSetSpec `json:"spec"`
+	Spec RuleSetSpec `json:"spec,omitzero"`
 
-	// Status defines the observed state of RuleSet.
+	// status defines the observed state of RuleSet.
 	//
 	// +optional
-	Status RuleSetStatus `json:"status,omitzero"`
+	// +kubebuilder:validation:MinProperties=1
+	Status RuleSetStatus `json:"status,omitempty,omitzero"`
 }
 
 // RuleSetList contains a list of RuleSet resources.
@@ -81,17 +82,18 @@ type RuleSetList struct {
 
 // RuleSetSpec defines the desired state of RuleSet.
 type RuleSetSpec struct {
-	// Rules is an ordered list of references to other objects that contain the
+	// rules is an ordered list of references to other objects that contain the
 	// firewall rules to be compiled into a complete set.
 	//
 	// Currently, only core/v1 ConfigMap kind is supported for rule sources.
 	//
 	// +required
+	// +listType=atomic
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=2048
 	// +kubebuilder:validation:XValidation:rule="self.all(r, r.kind == 'ConfigMap' && r.apiVersion == 'v1')",message="only core/v1 ConfigMap kind is supported for rule sources"
 	// +kubebuilder:validation:XValidation:rule="self.all(r, !has(r.namespace) || r.namespace == '')",message="cross-namespace references are not currently supported"
-	Rules []corev1.ObjectReference `json:"rules"`
+	Rules []corev1.ObjectReference `json:"rules,omitempty"`
 }
 
 // -----------------------------------------------------------------------------
@@ -100,7 +102,7 @@ type RuleSetSpec struct {
 
 // RuleSetStatus defines the observed state of RuleSet.
 type RuleSetStatus struct {
-	// Conditions represent the current state of the RuleSet resource.
+	// conditions represent the current state of the RuleSet resource.
 	// Each condition has a unique type and reflects the status of a specific aspect of the resource.
 	//
 	// Standard condition types include:
@@ -112,10 +114,10 @@ type RuleSetStatus struct {
 	//
 	// +listType=map
 	// +listMapKey=type
-	// +patchStrategy=merge
-	// +patchMergeKey=type
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=8
 	// +optional
-	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // -----------------------------------------------------------------------------
@@ -124,7 +126,7 @@ type RuleSetStatus struct {
 
 // RuleSetCacheServerConfig defines the configuration for the RuleSet cache server.
 type RuleSetCacheServerConfig struct {
-	// PollIntervalSeconds specifies how often the WAF should check for
+	// pollIntervalSeconds specifies how often the WAF should check for
 	// configuration updates. The value is specified in seconds.
 	//
 	// When omitted, this means the user has no opinion and the platform
@@ -134,6 +136,6 @@ type RuleSetCacheServerConfig struct {
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=3600
 	// +kubebuilder:default=15
-	// +required
-	PollIntervalSeconds int32 `json:"pollIntervalSeconds"`
+	// +optional
+	PollIntervalSeconds int32 `json:"pollIntervalSeconds,omitempty"`
 }

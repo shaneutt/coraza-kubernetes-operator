@@ -44,19 +44,20 @@ func init() {
 type Engine struct {
 	metav1.TypeMeta `json:",inline"`
 
-	// ObjectMeta is a standard object metadata.
+	// metadata is a standard object metadata.
 	//
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitzero"`
 
-	// Spec defines the desired state of Engine.
+	// spec defines the desired state of Engine.
 	//
 	// +required
-	Spec EngineSpec `json:"spec"`
+	Spec EngineSpec `json:"spec,omitzero"`
 
-	// Status defines the observed state of Engine.
+	// status defines the observed state of Engine.
 	//
 	// +optional
+	// +kubebuilder:validation:MinProperties=1
 	Status EngineStatus `json:"status,omitzero"`
 }
 
@@ -83,23 +84,24 @@ type EngineList struct {
 
 // EngineSpec defines the desired state of an Engine.
 type EngineSpec struct {
-	// RuleSet specifies the RuleSet resource that will be used to load rules
+	// ruleSet specifies the RuleSet resource that will be used to load rules
 	// into the Engine.
 	//
 	// +required
 	// +kubebuilder:validation:XValidation:rule="self.kind == 'RuleSet' && self.apiVersion == 'waf.k8s.coraza.io/v1alpha1'",message="only waf.k8s.coraza.io/v1alpha1 RuleSet kind is supported"
 	// +kubebuilder:validation:XValidation:rule="!has(self.namespace) || self.namespace == ''",message="cross-namespace references are not currently supported"
 	// +kubebuilder:validation:XValidation:rule="self.name != ''",message="ruleSet name must not be empty"
-	RuleSet corev1.ObjectReference `json:"ruleSet"`
+	RuleSet corev1.ObjectReference `json:"ruleSet,omitempty"`
 
-	// Driver specifies the driver configuration for the engine. This
+	// driver specifies the driver configuration for the engine. This
 	// determines how the WAF engine will be deployed and integrated with some
 	// implementation. Currently only supports Istio ingress Gateways.
 	//
+	// +kubebuilder:validation:MinProperties=1
 	// +required
 	Driver DriverConfig `json:"driver"`
 
-	// FailurePolicy determines the behavior when the WAF is not ready or
+	// failurePolicy determines the behavior when the WAF is not ready or
 	// encounters errors. Valid values are:
 	//
 	// - "Fail": Block traffic when the WAF is not ready or encounters errors
@@ -110,9 +112,9 @@ type EngineSpec struct {
 	//
 	// The current default is fail.
 	//
-	// +required
+	// +optional
 	// +kubebuilder:default=fail
-	FailurePolicy FailurePolicy `json:"failurePolicy"`
+	FailurePolicy FailurePolicy `json:"failurePolicy,omitempty"`
 }
 
 // -----------------------------------------------------------------------------
@@ -121,7 +123,7 @@ type EngineSpec struct {
 
 // EngineStatus defines the observed state of Engine.
 type EngineStatus struct {
-	// Conditions represent the current state of the Engine resource.
+	// conditions represent the current state of the Engine resource.
 	// Each condition has a unique type and reflects the status of a specific
 	// aspect of the resource.
 	//
@@ -134,14 +136,16 @@ type EngineStatus struct {
 	//
 	// +listType=map
 	// +listMapKey=type
-	// +patchStrategy=merge
-	// +patchMergeKey=type
 	// +optional
-	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=8
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
-	// OwnedResources lists the resources created and managed by this Engine.
+	// ownedResources lists the resources created and managed by this Engine.
 	//
 	// +listType=atomic
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=8
 	// +optional
 	OwnedResources []corev1.ObjectReference `json:"ownedResources,omitempty"`
 }
