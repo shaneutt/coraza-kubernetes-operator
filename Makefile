@@ -216,7 +216,7 @@ $(GOLANGCI_KUBE_API_LINTER): $(LOCALBIN) $(GOLANGCI_LINT)
 	$(GOLANGCI_LINT) custom -v
 
 define go-install-tool
-@[ -f "$(1)-$(3)" ] && [ "$$(readlink -- "$(1)" 2>/dev/null)" = "$(1)-$(3)" ] || { \
+@[ -f "$(1)-$(3)" ] && [ "$$(readlink -- "$(1)" 2>/dev/null)" = "$$(basename "$(1)")-$(3)" ] || { \
 set -e; \
 package=$(2)@$(3) ;\
 echo "Downloading $${package}" ;\
@@ -224,7 +224,7 @@ rm -f "$(1)" ;\
 GOBIN="$(LOCALBIN)" go install $${package} ;\
 mv "$(LOCALBIN)/$$(basename "$(1)")" "$(1)-$(3)" ;\
 } ;\
-ln -sf "$$(realpath "$(1)-$(3)")" "$(1)"
+ln -sf "$$(basename "$(1)")-$(3)" "$(1)"
 endef
 
 define gomodver
