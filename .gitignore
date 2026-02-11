@@ -36,6 +36,8 @@ go.work
 !DEVELOPMENT.md
 !SECURITY.md
 !CHANGELOG.md
+!.github/copilot-instructions.md
+!.github/instructions/*.instructions.md
 
 # Python
 __pycache__/
