@@ -16,6 +16,12 @@ limitations under the License.
 
 package v1alpha1
 
+type DriverType string
+
+const (
+	DriverTypeIstio DriverType = "Istio"
+)
+
 // -----------------------------------------------------------------------------
 // Engine - Driver Config
 // -----------------------------------------------------------------------------
@@ -26,6 +32,12 @@ package v1alpha1
 //
 // +kubebuilder:validation:XValidation:rule="[has(self.istio)].filter(x, x).size() == 1",message="exactly one driver must be specified"
 type DriverConfig struct {
+	// driver defines what is the driver type. Only the matching driver configuration
+	// should be used
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=128
+	// +required
+	Driver DriverType `json:"driver,omitempty,omitzero"`
 	// istio configures the Engine to integrate with Istio service mesh.
 	//
 	// +kubebuilder:validation:MinProperties=0
