@@ -97,9 +97,8 @@ type EngineSpec struct {
 	// determines how the WAF engine will be deployed and integrated with some
 	// implementation. Currently only supports Istio ingress Gateways.
 	//
-	// +kubebuilder:validation:MinProperties=1
 	// +required
-	Driver DriverConfig `json:"driver"`
+	Driver DriverConfig `json:"driver,omitzero"`
 
 	// failurePolicy determines the behavior when the WAF is not ready or
 	// encounters errors. Valid values are:

@@ -33,6 +33,7 @@ import (
 type IstioDriverConfig struct {
 	// wasm configures the Engine to be deployed as a WebAssembly plugin.
 	//
+	// +kubebuilder:validation:MinProperties=0
 	// +optional
 	Wasm *IstioWasmConfig `json:"wasm,omitempty,omitzero"`
 }
@@ -75,8 +76,8 @@ type IstioWasmConfig struct {
 	// dynamically loaded. This implies that your Engine will be deployed with
 	// all rules statically embedded.
 	//
-	// +kubebuilder:validation:MinProperties=1
 	// +optional
+	// +kubebuilder:validation:MinProperties=0
 	RuleSetCacheServer *RuleSetCacheServerConfig `json:"ruleSetCacheServer,omitempty,omitzero"`
 }
 
