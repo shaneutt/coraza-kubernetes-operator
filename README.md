@@ -1,5 +1,6 @@
 ![CI](https://github.com/networking-incubator/coraza-kubernetes-operator/actions/workflows/ci.yml/badge.svg)
 ![RELEASE](https://img.shields.io/github/v/release/networking-incubator/coraza-kubernetes-operator?include_prereleases)
+
 # Coraza Kubernetes Operator
 
 [Web Application Firewall (WAF)] support for [Kubernetes] [Gateways].
@@ -10,16 +11,17 @@
 
 ## About
 
-The Coraza Kubernetes Operator (CKO) enables declarative management of Web
-Application Firewalls (WAF) on Kubernetes clusters. Users can deploy
+The Coraza Kubernetes Operator (CKO) enables declarative management of [Web
+Application Firewalls (WAF)] on Kubernetes clusters. Users can deploy
 firewall engines which are attached to gateways, and rules which those
 engines enforce.
 
-[CorazaWAF] is used as the firewall engine.
+[Coraza] is used as the firewall engine.
 
-[CorazaWAF]:https://github.com/corazawaf/coraza
+[Web Application Firewalls (WAF)]:https://wikipedia.org/wiki/Web_application_firewall
+[Coraza]:https://github.com/corazawaf/coraza
 
-**Key Features:**
+### Key Features
 
 - `Engine` API - declaratively manage WAF instances
 - `RuleSet` API - declaratively manage firewall rules
@@ -35,26 +37,36 @@ their gateways/proxies:
 - `istio` - Istio integration ✅ **Currently Supported (ingress Gateway only)**
 - `wasm` - WebAssembly deployment ✅ **Currently Supported**
 
-> **Note**: Only Istio+Wasm is supported currently.
+> **Note**: Only Istio+WASM is supported currently.
 
 ### Architecture
 
-The CKO's `RuleSetController` responds to `RuleSet` resources by validating and
-compiling the rules, which gets emitted to a cache. The keys for the cache are
-the namespace/name of the `RuleSet`, allowing the compiled set of rules to be
-polled from a cache server hosting the cache.
+The CKO's ruleset controller responds to `RuleSet` resources by validating and
+compiling the rules (e.g. list of `ConfigMap` resources containing the
+[Seclang] rules), which gets emitted to the `RuleSet` cache.
 
 > **Note**: Currently, only [Seclang] rules are supported.
 
-The `EngineController` responds to `Engine` resources by deploying a WAF engine
-according to the type and mode provided, and attaching it to a `Gateway`. It
-targets a `RuleSet` to poll the compiled ruleset from the cache server and apply
-it to the `Engine`. Poll intervals are set so the rules can be dynamically
-updated over time.
+The keys for the cache are the `namespace/name` of the `RuleSet`, allowing the
+compiled set of rules to be polled from a cache server hosting the cache.
+
+> **Note**: All `RuleSets` and rules are restricted to same-namespace
+> currently.
+
+The engine controller responds to `Engine` resources by deploying the Coraza
+engine according to the type and mode provided, and attaching it to a `Gateway`.
+
+> **Note**: For example: if the type is `istio` and the mode is `wasm`, it
+> will attach Coraza to an Istio `Gateway`, loading it via a [WASM] module.
+
+`Engine` resources target a `RuleSet` to indicate the firewall rules that will
+be applied to all `Gateway` traffic. Poll intervals for `RuleSets` can be set
+to enable automatic and live rule updates on running `Engines`.
 
 <img width="825" height="460" alt="cko-architecture-diagram" src="https://github.com/user-attachments/assets/e7b257e3-096f-4321-a40d-fe4e473480ac" />
 
 [Seclang]:https://github.com/owasp-modsecurity/ModSecurity/wiki/Reference-Manual-(v3.x)
+[WASM]:https://webassembly.org/
 
 ## Documentation
 
