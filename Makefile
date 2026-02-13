@@ -16,8 +16,9 @@ CONTAINER_TOOL ?= docker
 KIND_CLUSTER_NAME ?= coraza-kubernetes-operator-integration
 ISTIO_VERSION ?= 1.28.2
 
+VERSION ?= dev
 CONTROLLER_MANAGER_CONTAINER_IMAGE_BASE ?= ghcr.io/networking-incubator/coraza-kubernetes-operator
-CONTROLLER_MANAGER_CONTAINER_IMAGE_TAG ?= dev
+CONTROLLER_MANAGER_CONTAINER_IMAGE_TAG ?= $(VERSION)
 CONTROLLER_MANAGER_CONTAINER_IMAGE ?= ${CONTROLLER_MANAGER_CONTAINER_IMAGE_BASE}:${CONTROLLER_MANAGER_CONTAINER_IMAGE_TAG}
 
 # ------------------------------------------------------------------------------
@@ -48,6 +49,24 @@ build.installer: manifests generate kustomize
 	mkdir -p dist
 	cd config/manager && "$(KUSTOMIZE)" edit set image controller=${CONTROLLER_MANAGER_CONTAINER_IMAGE}
 	"$(KUSTOMIZE)" build config/default > dist/install.yaml
+
+.PHONY: release.manifests
+release.manifests: manifests generate kustomize
+	@echo "Building release manifest bundles..."
+	@mkdir -p dist
+	@echo "Building CRDs bundle..."
+	"$(KUSTOMIZE)" build config/crd > dist/crds.yaml
+	@echo "Building controller-manager bundle..."
+	cd config/manager && "$(KUSTOMIZE)" edit set image controller=${CONTROLLER_MANAGER_CONTAINER_IMAGE_BASE}:${VERSION}
+	"$(KUSTOMIZE)" build config/manager > dist/operator.yaml
+	@echo "Building samples bundle..."
+	cat config/samples/gateway.yaml > dist/samples.yaml
+	echo "---" >> dist/samples.yaml
+	cat config/samples/ruleset.yaml >> dist/samples.yaml
+	echo "---" >> dist/samples.yaml
+	cat config/samples/engine.yaml >> dist/samples.yaml
+	@echo "Manifest bundles built successfully in dist/"
+	@ls -lh dist/
 
 # ------------------------------------------------------------------------------
 # Deployment

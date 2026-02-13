@@ -20,6 +20,7 @@ go.work
 
 # Kubernetes Generated files - skip generated files, except for vendored files
 !vendor/**/zz_generated.*
+dist/*
 
 # editor and IDE paraphernalia
 .idea
@@ -37,13 +38,13 @@ go.work
 !CONTRIBUTING.md
 !DEVELOPMENT.md
 !SECURITY.md
-!CHANGELOG.md
+!RELEASE.md
 
 # templates
 !.github/*.md
 !.github/**/*.md
 
-# Copilot
+# GitHub Copilot
 !.github/copilot-instructions.md
 !.github/instructions/*.instructions.md
 
