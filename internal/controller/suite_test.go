@@ -63,29 +63,45 @@ func TestMain(m *testing.M) {
 		}
 	}()
 
+	scheme = runtime.NewScheme()
+	if err := wafv1alpha1.AddToScheme(scheme); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to add waf scheme: %v\n", err)
+		os.Exit(1)
+	}
+	if err := corev1.AddToScheme(scheme); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to add core scheme: %v\n", err)
+		os.Exit(1)
+	}
+
+	// The version used here MUST reflect the available versions at
+	// controller-runtime repo: https://raw.githubusercontent.com/kubernetes-sigs/controller-tools/HEAD/envtest-releases.yaml
+	// If the envvar is not passed, the latest GA will be used
+	k8sVersion := os.Getenv("K8S_VERSION")
+
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "config", "crd", "bases"),
-			istioCRDDir,
+		CRDInstallOptions: envtest.CRDInstallOptions{
+			Paths: []string{
+				filepath.Join("..", "..", "config", "crd", "bases"),
+				istioCRDDir,
+			},
+			CleanUpAfterUse: true,
 		},
+		Scheme:                      scheme,
+		DownloadBinaryAssets:        true,
+		DownloadBinaryAssetsVersion: k8sVersion,
+		ErrorIfCRDPathMissing:       true,
 	}
 	cfg, err = testEnv.Start()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to start test environment: %v\n", err)
 		os.Exit(1)
 	}
-
-	scheme = runtime.NewScheme()
-	if err := wafv1alpha1.AddToScheme(scheme); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to add waf scheme: %v\n", err)
-		_ = testEnv.Stop()
-		os.Exit(1)
-	}
-	if err := corev1.AddToScheme(scheme); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to add core scheme: %v\n", err)
-		_ = testEnv.Stop()
-		os.Exit(1)
-	}
+	defer func() {
+		if err := testEnv.Stop(); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to stop test environment: %v\n", err)
+			os.Exit(1)
+		}
+	}()
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme})
 	if err != nil {

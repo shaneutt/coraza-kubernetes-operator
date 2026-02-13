@@ -134,13 +134,13 @@ clean.cluster.kind:
 # -------------------------------------------------------------------------------
 
 .PHONY: test
-test: generate setup-envtest
-	ISTIO_VERSION=${ISTIO_VERSION} KUBEBUILDER_ASSETS="$$($(SETUP_ENVTEST) use -p path)" go test -v ./...
+test: generate
+	ISTIO_VERSION=${ISTIO_VERSION} go test -v ./...
 
 .PHONY: test.coverage
-test.coverage: generate setup-envtest
+test.coverage: generate
 	@echo "Running tests with coverage..."
-	@ISTIO_VERSION=${ISTIO_VERSION} KUBEBUILDER_ASSETS="$$($(SETUP_ENVTEST) use -p path)" go test -v ./... -coverprofile=coverage.out -covermode=atomic
+	@ISTIO_VERSION=${ISTIO_VERSION} go test -v ./... -coverprofile=coverage.out -covermode=atomic
 	@echo "Coverage by package:"
 	@go tool cover -func=coverage.out | grep -v "total:" || true
 	@echo "Total coverage:"
@@ -165,12 +165,10 @@ KIND ?= kind
 KUSTOMIZE ?= $(LOCALBIN)/kustomize
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
-SETUP_ENVTEST ?= $(LOCALBIN)/setup-envtest
 
 KUSTOMIZE_VERSION ?= v5.7.1
 CONTROLLER_TOOLS_VERSION ?= v0.19.0
 GOLANGCI_LINT_VERSION ?= v2.5.0
-SETUP_ENVTEST_VERSION ?= latest
 
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE)
@@ -186,11 +184,6 @@ $(CONTROLLER_GEN): $(LOCALBIN)
 golangci-lint: $(GOLANGCI_LINT)
 $(GOLANGCI_LINT): $(LOCALBIN)
 	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/v2/cmd/golangci-lint,$(GOLANGCI_LINT_VERSION))
-
-.PHONY: setup-envtest
-setup-envtest: $(SETUP_ENVTEST)
-$(SETUP_ENVTEST): $(LOCALBIN)
-	$(call go-install-tool,$(SETUP_ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest,$(SETUP_ENVTEST_VERSION))
 
 define go-install-tool
 @[ -f "$(1)-$(3)" ] && [ "$$(readlink -- "$(1)" 2>/dev/null)" = "$(1)-$(3)" ] || { \
