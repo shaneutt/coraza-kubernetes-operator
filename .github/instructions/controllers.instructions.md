@@ -2,7 +2,7 @@
 applyTo: "internal/controller/**/*.go"
 ---
 
-- Every reconciliation path must end with a status update. Check that all exit paths (error and success) set appropriate conditions (Ready, Progressing, Degraded).
+- After successfully fetching the CR (and especially after making decisions based on its spec), ensure status conditions are updated on success and failure paths where possible (e.g., Ready, Progressing, Degraded). Some infrastructure or early validation errors may legitimately return before a status update.
 - Requeue decisions matter: returning an error requeues with backoff; returning `ctrl.Result{RequeueAfter: ...}` requeues on a timer. Verify the right strategy is used.
 - Watch predicates control what triggers reconciliation. Changes to predicates can cause missed events or infinite loops.
 - RBAC markers (`kubebuilder:rbac`) must match the resources the controller actually touches. New resource types need new RBAC markers and a `make manifests` rerun.
