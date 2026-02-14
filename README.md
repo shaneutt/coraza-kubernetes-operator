@@ -62,15 +62,6 @@ Documentation is available in the [wiki].
 
 [wiki]:https://github.com/networking-incubator/coraza-kubernetes-operator/wiki
 
-### Quick Start
-
-See the [Installation Documentation] for installation options.
-
-Once everything's up and running, see the [Basic Usage Documentation].
-
-[Installation Documentation]:https://github.com/networking-incubator/coraza-kubernetes-operator/wiki/Installation
-[Basic Usage Documentation]:https://github.com/networking-incubator/coraza-kubernetes-operator/wiki/Basic-Usage
-
 ## Contributing
 
 Contributions are welcome!
