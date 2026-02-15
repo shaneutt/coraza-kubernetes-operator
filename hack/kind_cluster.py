@@ -8,6 +8,8 @@ import subprocess
 import argparse
 import os
 import sys
+import ipaddress
+import json
 
 default_namespace: str = "integration-tests"
 gateway_api: str = (
@@ -28,8 +30,33 @@ def get_istio_version() -> str:
     return istio_version
 
 
-def run(cmd: str, check: bool = True) -> subprocess.CompletedProcess[bytes]:
-    return subprocess.run(cmd, shell=True, check=check)
+def get_kind_network_range() -> str:
+    """Get the Network range used by kind network, to be used during LoadBalancer deployment"""
+    result = run("docker network inspect kind", check=False, capture_output=True)
+    if result.returncode != 0:
+        print("ERROR: Could not get the kind network range", file=sys.stderr)
+        sys.exit(1)
+    try:
+        kind_network = json.loads(result.stdout)
+        ipam_config = kind_network[0].get("IPAM", {}).get("Config", [])
+        if not ipam_config:
+            raise ValueError(f"No IPAM configuration found for network: {kind_network}")
+        ipv4_config = next((c for c in ipam_config if ":" not in c.get("Subnet", "")), None)
+        if not ipv4_config:
+            raise ValueError("No IPv4 configuration found.")
+        cidr = ipv4_config.get("IPRange") or ipv4_config.get("Subnet")
+        net = ipaddress.ip_network(cidr)
+        broadcast = net.broadcast_address
+        last_pool_ip = broadcast - 1 # eg.: 172.18.255.254
+        first_pool_ip = broadcast - 10 # eg.: 172.18.255.244
+        return f"{first_pool_ip}-{last_pool_ip}"
+    except Exception as e:
+        print(f"ERROR: Invalid IP address range: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def run(cmd: str, check: bool = True, capture_output: bool = False) -> subprocess.CompletedProcess[bytes]:
+    return subprocess.run(cmd, shell=True, check=check, capture_output=capture_output)
 
 
 def get_kind_context(name: str) -> str:
@@ -59,6 +86,57 @@ def deploy_gateway_api_crds(context: str) -> None:
     print("Deploying Gateway API CRDs")
     run(f"kubectl --context {context} apply -f {gateway_api}")
 
+def deploy_metallb(context: str) -> None:
+    metallb_version = os.environ.get("METALLB_VERSION")
+    if not metallb_version:
+        print("ERROR: METALLB_VERSION environment variable is required", file=sys.stderr)
+        sys.exit(1)
+    print("Deploying MetalLB")
+    try:
+        run(
+            f"kubectl --context {context} apply --server-side "
+            f"-f https://raw.githubusercontent.com/metallb/metallb/v{metallb_version}/config/manifests/metallb-native.yaml"
+        )
+        run(
+            f"kubectl --context {context} wait --for=condition=Available "
+            f"deployment/controller -n metallb-system --timeout=300s"
+        )
+
+    except subprocess.CalledProcessError as e:
+        print("ERROR: deploying MetalLB: kubectl command failed", file=sys.stderr)
+        if getattr(e, "stdout", None):
+            stdout_text = e.stdout.decode() if isinstance(e.stdout, bytes) else str(e.stdout)
+            print("kubectl stdout:", stdout_text, file=sys.stderr)
+        if getattr(e, "stderr", None):
+            stderr_text = e.stderr.decode() if isinstance(e.stderr, bytes) else str(e.stderr)
+            print("kubectl stderr:", stderr_text, file=sys.stderr)
+        sys.exit(1)
+
+def create_metallb_manifests(context: str, iprange: str) -> None:
+    print("Creating MetalLB pool and L2Advertisement")
+    metallb_manifests = f"""
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  namespace: metallb-system
+  name: kube-services
+spec:
+  addresses:
+  - {iprange}
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: kube-services
+  namespace: metallb-system
+spec:
+  ipAddressPools:
+  - kube-services
+"""
+    run(
+        f"echo '{metallb_manifests}' | kubectl "
+        f"--context {context} apply --server-side -f -"
+    )
 
 def deploy_istio_sail(context: str) -> None:
     istio_version = get_istio_version()
@@ -202,6 +280,9 @@ def setup_cluster(name: str) -> None:
     context = get_kind_context(name)
 
     deploy_gateway_api_crds(context)
+    deploy_metallb(context)
+    metallb_ip_range = get_kind_network_range()
+    create_metallb_manifests(context, metallb_ip_range)
     deploy_istio_sail(context)
     create_istio_control_plane(context)
     create_gateway_class(context)
