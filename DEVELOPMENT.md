@@ -61,3 +61,7 @@ Run the integration tests:
 ```bash
 make test.integration
 ```
+
+# Releasing
+
+See [RELEASE.md](RELEASE.md).

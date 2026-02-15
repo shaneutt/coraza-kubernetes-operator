@@ -1,0 +1,88 @@
+name: release
+
+permissions:
+  contents: write
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+*"
+
+jobs:
+  prepare:
+    name: check release tag
+    runs-on: ubuntu-latest
+    outputs:
+      is_prerelease: ${{ steps.prerelease.outputs.is_prerelease }}
+    steps:
+      - name: validate version tag format
+        run: |
+          if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta|rc)\.?[0-9]+)?$ ]]; then
+            echo "::error::Invalid version tag format: $GITHUB_REF_NAME"
+            exit 1
+          fi
+
+      - name: determine if pre-release
+        id: prerelease
+        run: |
+          # Check if version matches pre-release patterns:
+          # - v0.x.x (any 0.x version is considered pre-release)
+          # - vX.Y.Z-alpha.N, vX.Y.Z-beta.N, vX.Y.Z-rc.N
+          if [[ "$GITHUB_REF_NAME" =~ ^v0\. ]] || [[ "$GITHUB_REF_NAME" =~ -(alpha|beta|rc) ]]; then
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+            echo "This is a pre-release: $GITHUB_REF_NAME"
+          else
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+            echo "This is a stable release: $GITHUB_REF_NAME"
+          fi
+
+  build-manifests:
+    name: build manifests
+    runs-on: ubuntu-latest
+    needs: prepare
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v6
+
+      - name: set up go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: "go.mod"
+
+      - name: build manifest bundles # crds.yaml, operator.yaml, samples.yaml
+        run: make release.manifests
+        env:
+          VERSION: ${{ github.ref_name }}
+
+      - name: upload manifest artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: manifests
+          path: dist/
+
+  publish-release:
+    name: publish github release
+    runs-on: ubuntu-latest
+    needs: [prepare, build-manifests]
+    steps:
+      - name: download manifest artifacts
+        uses: actions/download-artifact@v6
+        with:
+          name: manifests
+          path: dist/
+
+      - name: create github release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          draft: true # IMPORTANT: our releases are immutable, so a maintainer needs to validate and do the final publish
+          prerelease: ${{ needs.prepare.outputs.is_prerelease == 'true' }}
+          files: |
+            dist/crds.yaml
+            dist/operator.yaml
+            dist/samples.yaml
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
