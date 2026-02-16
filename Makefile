@@ -174,6 +174,24 @@ test.integration:
 	KIND_CLUSTER_NAME=${KIND_CLUSTER_NAME} ISTIO_VERSION=${ISTIO_VERSION} go test -tags=integration ./test/integration/... -v
 
 # -------------------------------------------------------------------------------
+# Helm
+# -------------------------------------------------------------------------------
+
+HELM_CHART_DIR ?= charts/coraza-kubernetes-operator
+
+.PHONY: helm.lint
+helm.lint: ## Lint the Helm chart
+	helm lint $(HELM_CHART_DIR)
+
+.PHONY: helm.template
+helm.template: ## Render the Helm chart templates locally
+	helm template coraza-kubernetes-operator $(HELM_CHART_DIR) --namespace coraza-system
+
+.PHONY: helm.sync-crds
+helm.sync-crds: manifests ## Copy generated CRDs into the Helm chart
+	cp config/crd/bases/*.yaml $(HELM_CHART_DIR)/crds/
+
+# -------------------------------------------------------------------------------
 # Dependencies
 # -------------------------------------------------------------------------------
 
