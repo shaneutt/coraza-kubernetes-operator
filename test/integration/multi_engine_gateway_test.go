@@ -1,0 +1,175 @@
+//go:build integration
+
+/*
+Copyright 2026 Shane Utt.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package integration
+
+import (
+	"context"
+	"fmt"
+	"testing"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/networking-incubator/coraza-kubernetes-operator/test/framework"
+)
+
+// TestMultiEngineMultiGateway validates the behavior of multi-engine and
+// multi-gateway combinations:
+//
+//   - An Engine targeting multiple Gateways (via separate engines per gateway,
+//     or a shared label selector when supported).
+//   - Multiple Engines attempting to attach to a single Gateway.
+//   - An Engine whose label selector matches no Gateways.
+//
+// Related: https://github.com/networking-incubator/coraza-kubernetes-operator/issues/52
+func TestMultiEngineMultiGateway(t *testing.T) {
+
+	// -------------------------------------------------------------------------
+	// Sub-test: One Engine per Gateway, multiple Gateways sharing a RuleSet
+	// -------------------------------------------------------------------------
+
+	t.Run("engine_per_gateway_shared_ruleset", func(t *testing.T) {
+		s := fw.NewScenario(t)
+		defer s.Cleanup()
+
+		ns := "multi-target-test"
+		s.CreateNamespace(ns)
+
+		s.Step("create shared rules")
+		s.CreateConfigMap(ns, "base-rules", `SecRuleEngine On`)
+		s.CreateConfigMap(ns, "block-rules",
+			framework.SimpleBlockRule(1001, "evil"),
+		)
+		s.CreateRuleSet(ns, "shared-rules", []string{"base-rules", "block-rules"})
+
+		s.Step("create gateways and engines")
+		for i := 1; i <= 2; i++ {
+			gwName := fmt.Sprintf("shared-gw-%d", i)
+			engineName := fmt.Sprintf("engine-%d", i)
+
+			s.CreateGateway(ns, gwName)
+			s.ExpectGatewayProgrammed(ns, gwName)
+
+			s.CreateEngine(ns, engineName, framework.EngineOpts{
+				RuleSetName: "shared-rules",
+				GatewayName: gwName,
+			})
+			s.ExpectEngineReady(ns, engineName)
+		}
+
+		s.Step("verify both gateways enforce rules")
+		for i := 1; i <= 2; i++ {
+			gwName := fmt.Sprintf("shared-gw-%d", i)
+			gw := s.ProxyToGateway(ns, gwName)
+			gw.ExpectBlocked("/?test=evil")
+			gw.ExpectAllowed("/?test=safe")
+		}
+	})
+
+	// -------------------------------------------------------------------------
+	// Sub-test: Multiple Engines targeting the same Gateway
+	// -------------------------------------------------------------------------
+
+	t.Run("multiple_engines_single_gateway", func(t *testing.T) {
+		s := fw.NewScenario(t)
+		defer s.Cleanup()
+
+		ns := "multi-engine-test"
+		s.CreateNamespace(ns)
+
+		s.Step("create a single gateway")
+		s.CreateGateway(ns, "target-gw")
+		s.ExpectGatewayProgrammed(ns, "target-gw")
+
+		s.Step("create two different rule sets")
+		s.CreateConfigMap(ns, "base-rules", `SecRuleEngine On`)
+		s.CreateConfigMap(ns, "rules-a",
+			framework.SimpleBlockRule(2001, "attackA"),
+		)
+		s.CreateConfigMap(ns, "rules-b",
+			framework.SimpleBlockRule(2002, "attackB"),
+		)
+		s.CreateRuleSet(ns, "ruleset-a", []string{"base-rules", "rules-a"})
+		s.CreateRuleSet(ns, "ruleset-b", []string{"base-rules", "rules-b"})
+
+		s.Step("attach first engine to the gateway")
+		s.CreateEngine(ns, "engine-a", framework.EngineOpts{
+			RuleSetName: "ruleset-a",
+			GatewayName: "target-gw",
+		})
+		s.ExpectEngineReady(ns, "engine-a")
+
+		s.Step("attempt to attach second engine to the same gateway")
+		// Per issue #52, multiple engines on a single gateway should be
+		// disallowed in v0.2.0. This test documents the actual behavior.
+		// If it's rejected, TryCreateEngine returns an error.
+		// If it's accepted, we verify what happens.
+		err := s.TryCreateEngine(ns, "engine-b", framework.EngineOpts{
+			RuleSetName: "ruleset-b",
+			GatewayName: "target-gw",
+		})
+		if err != nil {
+			t.Logf("Second engine rejected (expected for v0.2.0): %v", err)
+		} else {
+			t.Log("Second engine accepted - verifying combined behavior")
+			s.OnCleanup(func() {
+				_ = s.F.DynamicClient.Resource(framework.EngineGVR).Namespace(ns).Delete(
+					context.Background(), "engine-b", metav1.DeleteOptions{},
+				)
+			})
+		}
+
+		s.Step("verify first engine's rules are enforced")
+		gw := s.ProxyToGateway(ns, "target-gw")
+		gw.ExpectBlocked("/?test=attackA")
+
+		if err == nil {
+			s.Step("verify second engine's rules are also enforced")
+			gw.ExpectBlocked("/?test=attackB")
+		}
+	})
+
+	// -------------------------------------------------------------------------
+	// Sub-test: Engine targeting a non-existent Gateway
+	// -------------------------------------------------------------------------
+
+	t.Run("engine_no_matching_gateway", func(t *testing.T) {
+		s := fw.NewScenario(t)
+		defer s.Cleanup()
+
+		ns := "no-target-test"
+		s.CreateNamespace(ns)
+
+		s.Step("create rules and engine targeting non-existent gateway")
+		s.CreateConfigMap(ns, "base-rules", `SecRuleEngine On`)
+		s.CreateRuleSet(ns, "ruleset", []string{"base-rules"})
+		s.CreateEngine(ns, "orphan-engine", framework.EngineOpts{
+			RuleSetName: "ruleset",
+			GatewayName: "nonexistent-gateway",
+		})
+
+		s.Step("verify engine status")
+		// The WasmPlugin is still created (targeting pods that don't exist).
+		// Per issue #52, the engine status should reflect the degraded state
+		// when Gateway watches are implemented. For now we verify the engine
+		// still reaches Ready since the operator doesn't currently check
+		// whether the label selector matches any pods.
+		s.ExpectEngineReady(ns, "orphan-engine")
+		s.ExpectWasmPluginExists(ns, "coraza-engine-orphan-engine")
+	})
+}

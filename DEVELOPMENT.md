@@ -62,6 +62,46 @@ Run the integration tests:
 make test.integration
 ```
 
+## Integration Test Framework
+
+The `test/framework/` package provides structured integration test utilities.
+See [`test/framework/README.md`](test/framework/README.md) for the full API
+reference.
+
+A test scenario manages its own namespaces, resources, and port-forwards with
+automatic cleanup:
+
+```go
+func TestExample(t *testing.T) {
+    s := fw.NewScenario(t)
+    defer s.Cleanup()
+
+    s.CreateNamespace("my-test")
+    s.CreateConfigMap("my-test", "rules", `SecRuleEngine On
+SecRule ARGS "@contains attack" "id:1,phase:2,deny,status:403"`)
+    s.CreateRuleSet("my-test", "ruleset", []string{"rules"})
+    s.CreateGateway("my-test", "gateway")
+    s.ExpectGatewayProgrammed("my-test", "gateway")
+
+    s.CreateEngine("my-test", "engine", framework.EngineOpts{
+        RuleSetName: "ruleset",
+        GatewayName: "gateway",
+    })
+    s.ExpectEngineReady("my-test", "engine")
+
+    gw := s.ProxyToGateway("my-test", "gateway")
+    gw.ExpectBlocked("/?q=attack")
+    gw.ExpectAllowed("/?q=safe")
+}
+```
+
+Example scenarios for the v0.2.0 validation issues live in `test/integration/`:
+
+- `coreruleset_test.go` - CoreRuleSet compatibility (#12)
+- `multiple_gateways_test.go` - Multiple Gateways (#13)
+- `multi_engine_gateway_test.go` - Multiple Engines + Gateways (#52)
+- `reconcile_test.go` - Reconciliation of live RuleSet/ConfigMap mutations
+
 # Releasing
 
 See [RELEASE.md](RELEASE.md).
