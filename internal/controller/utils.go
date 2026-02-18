@@ -131,5 +131,8 @@ func serverSideApply(ctx context.Context, c client.Client, desired *unstructured
 		desired.SetNamespace(corev1.NamespaceDefault)
 	}
 
-	return c.Patch(ctx, desired, client.Apply, client.FieldOwner(fieldManager), client.ForceOwnership)
+	if err := c.Patch(ctx, desired, client.Apply, client.FieldOwner(fieldManager), client.ForceOwnership); err != nil {
+		return fmt.Errorf("server-side apply %s %s/%s: %w", gvk.Kind, desired.GetNamespace(), desired.GetName(), err)
+	}
+	return nil
 }
