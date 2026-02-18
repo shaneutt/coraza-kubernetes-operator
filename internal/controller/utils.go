@@ -23,7 +23,6 @@ import (
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -111,47 +110,26 @@ func setStatusReady(log logr.Logger, req ctrl.Request, kind string, conditions *
 // Kubernetes Client Operation Utilities
 // -----------------------------------------------------------------------------
 
-// createOrUpdate creates or updates an unstructured Kubernetes object.
-// If the object doesn't exist, it creates it. If it exists, it updates it.
+// fieldManager is the server-side apply field manager name for this operator.
+const fieldManager = "coraza-kubernetes-operator"
+
+// serverSideApply applies an unstructured Kubernetes object using server-side
+// apply. This avoids the optimistic concurrency conflicts inherent in
+// Get-then-Update patterns by using field ownership for conflict detection.
 //
 // The desired object must have its GVK and name set.
-func createOrUpdate(ctx context.Context, c client.Client, desired *unstructured.Unstructured) error {
+func serverSideApply(ctx context.Context, c client.Client, desired *unstructured.Unstructured) error {
 	gvk := desired.GetObjectKind().GroupVersionKind()
 	if gvk.Empty() {
 		return errors.New("desired object must have GroupVersionKind set")
 	}
 
-	namespace, name := desired.GetNamespace(), desired.GetName()
-	if name == "" {
+	if desired.GetName() == "" {
 		return errors.New("desired object must have a name set")
 	}
-	if namespace == "" {
-		namespace = corev1.NamespaceDefault
+	if desired.GetNamespace() == "" {
+		desired.SetNamespace(corev1.NamespaceDefault)
 	}
 
-	resource := &unstructured.Unstructured{}
-	resource.SetGroupVersionKind(desired.GetObjectKind().GroupVersionKind())
-
-	err := c.Get(ctx, client.ObjectKey{
-		Namespace: namespace,
-		Name:      desired.GetName(),
-	}, resource)
-
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			if err := c.Create(ctx, desired); err != nil {
-				return fmt.Errorf("failed to create %s/%s in namespace %s: %w", gvk.Kind, name, namespace, err)
-			}
-			return nil
-		}
-		return fmt.Errorf("failed to get %s/%s in namespace %s: %w", gvk.Kind, name, namespace, err)
-	}
-
-	desired.SetResourceVersion(resource.GetResourceVersion())
-
-	if err := c.Update(ctx, desired); err != nil {
-		return fmt.Errorf("failed to update %s/%s in namespace %s: %w", gvk.Kind, name, namespace, err)
-	}
-
-	return nil
+	return c.Patch(ctx, desired, client.Apply, client.FieldOwner(fieldManager), client.ForceOwnership)
 }

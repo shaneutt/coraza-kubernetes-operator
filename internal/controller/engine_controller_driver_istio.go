@@ -62,8 +62,8 @@ func (r *EngineReconciler) provisionIstioEngineWithWasm(ctx context.Context, log
 		return ctrl.Result{}, err
 	}
 
-	logDebug(log, req, "Engine", "Creating or updating WasmPlugin", "wasmPluginName", wasmPlugin.GetName())
-	if err := createOrUpdate(ctx, r.Client, wasmPlugin); err != nil {
+	logDebug(log, req, "Engine", "Applying WasmPlugin", "wasmPluginName", wasmPlugin.GetName())
+	if err := serverSideApply(ctx, r.Client, wasmPlugin); err != nil {
 		logError(log, req, "Engine", err, "Failed to create or update WasmPlugin")
 		r.Recorder.Event(&engine, "Warning", "ProvisioningFailed", fmt.Sprintf("Failed to create WasmPlugin: %v", err))
 
