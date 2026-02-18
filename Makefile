@@ -213,7 +213,7 @@ $(GOLANGCI_LINT): $(LOCALBIN)
 .PHONY: golangci-kube-api-linter
 golangci-kube-api-linter: $(GOLANGCI_KUBE_API_LINTER)
 $(GOLANGCI_KUBE_API_LINTER): $(LOCALBIN) $(GOLANGCI_LINT)
-	$(GOLANGCI_LINT) custom -v
+	"$(GOLANGCI_LINT)" custom -v
 
 define go-install-tool
 @[ -f "$(1)-$(3)" ] && [ "$$(readlink -- "$(1)" 2>/dev/null)" = "$$(basename "$(1)")-$(3)" ] || { \

@@ -69,10 +69,12 @@ spec:
                   istio:
                     description: istio configures the Engine to integrate with Istio
                       service mesh.
+                    minProperties: 1
                     properties:
                       wasm:
                         description: wasm configures the Engine to be deployed as
                           a WebAssembly plugin.
+                        minProperties: 1
                         properties:
                           image:
                             description: image is the OCI image reference for the
@@ -82,7 +84,6 @@ spec:
                             pattern: ^oci://
                             type: string
                           mode:
-                            default: gateway
                             description: |-
                               mode specifies what mechanism will be used to integrate the WAF with
                               Istio.
@@ -98,20 +99,18 @@ spec:
                               When omitted, no cache server will be used and no rulesets will be
                               dynamically loaded. This implies that your Engine will be deployed with
                               all rules statically embedded.
+                            minProperties: 1
                             properties:
                               pollIntervalSeconds:
-                                default: 15
                                 description: |-
                                   pollIntervalSeconds specifies how often the WAF should check for
                                   configuration updates. The value is specified in seconds.
-
-                                  When omitted, this means the user has no opinion and the platform
-                                  will choose a reasonable default, which is subject to change over time.
-                                  The current default is 15 seconds.
                                 format: int32
                                 maximum: 3600
                                 minimum: 1
                                 type: integer
+                            required:
+                            - pollIntervalSeconds
                             type: object
                           workloadSelector:
                             description: |-
@@ -163,6 +162,7 @@ spec:
                             x-kubernetes-map-type: atomic
                         required:
                         - image
+                        - mode
                         type: object
                         x-kubernetes-validations:
                         - message: workloadSelector is required when mode is gateway
@@ -180,18 +180,12 @@ spec:
                 - message: exactly one driver must be specified
                   rule: '[has(self.istio)].filter(x, x).size() == 1'
               failurePolicy:
-                default: fail
                 description: |-
                   failurePolicy determines the behavior when the WAF is not ready or
                   encounters errors. Valid values are:
 
                   - "Fail": Block traffic when the WAF is not ready or encounters errors
                   - "Allow": Allow traffic through when the WAF is not ready or encounters errors
-
-                  When omitted, this means the user has no opinion and the platform
-                  will choose a reasonable default, which is subject to change over time.
-
-                  The current default is fail.
                 enum:
                 - fail
                 - allow
@@ -250,10 +244,12 @@ spec:
                   rule: self.name != ''
             required:
             - driver
+            - failurePolicy
             - ruleSet
             type: object
           status:
             description: status defines the observed state of Engine.
+            minProperties: 1
             properties:
               conditions:
                 description: |-
@@ -322,7 +318,7 @@ spec:
                   - type
                   type: object
                 maxItems: 8
-                minItems: 1
+                minItems: 0
                 type: array
                 x-kubernetes-list-map-keys:
                 - type
@@ -375,7 +371,7 @@ spec:
                   type: object
                   x-kubernetes-map-type: atomic
                 maxItems: 8
-                minItems: 1
+                minItems: 0
                 type: array
                 x-kubernetes-list-type: atomic
             type: object

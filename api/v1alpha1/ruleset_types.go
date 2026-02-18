@@ -125,7 +125,7 @@ type RuleSetStatus struct {
 // -----------------------------------------------------------------------------
 
 // RuleSetCacheServerConfig defines the configuration for the RuleSet cache server.
-// +kubebuilder:validation:MinProperties=0
+// +kubebuilder:validation:MinProperties=1
 type RuleSetCacheServerConfig struct {
 	// pollIntervalSeconds specifies how often the WAF should check for
 	// configuration updates. The value is specified in seconds.

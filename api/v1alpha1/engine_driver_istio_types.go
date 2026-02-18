@@ -29,7 +29,7 @@ import (
 //
 // Exactly one mode must be specified.
 //
-// +kubebuilder:validation:MinProperties=0
+// +kubebuilder:validation:MinProperties=1
 // +kubebuilder:validation:XValidation:rule="[has(self.wasm)].filter(x, x).size() == 1",message="exactly one integration mechanism (Wasm, etc) must be specified"
 type IstioDriverConfig struct {
 	// wasm configures the Engine to be deployed as a WebAssembly plugin.
@@ -44,7 +44,7 @@ type IstioDriverConfig struct {
 
 // IstioWasmConfig defines configuration for deploying the Engine as a WASM
 // plugin with Istio.
-// +kubebuilder:validation:MinProperties=0
+// +kubebuilder:validation:MinProperties=1
 // +kubebuilder:validation:XValidation:rule="self.mode == 'gateway' ? has(self.workloadSelector) : true",message="workloadSelector is required when mode is gateway"
 type IstioWasmConfig struct {
 	// mode specifies what mechanism will be used to integrate the WAF with
