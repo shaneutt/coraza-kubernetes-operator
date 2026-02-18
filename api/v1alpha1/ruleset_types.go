@@ -55,7 +55,6 @@ type RuleSet struct {
 	// status defines the observed state of RuleSet.
 	//
 	// +optional
-	// +kubebuilder:validation:MinProperties=1
 	Status RuleSetStatus `json:"status,omitempty,omitzero"`
 }
 
@@ -101,6 +100,7 @@ type RuleSetSpec struct {
 // -----------------------------------------------------------------------------
 
 // RuleSetStatus defines the observed state of RuleSet.
+// +kubebuilder:validation:MinProperties=1
 type RuleSetStatus struct {
 	// conditions represent the current state of the RuleSet resource.
 	// Each condition has a unique type and reflects the status of a specific aspect of the resource.
@@ -114,7 +114,7 @@ type RuleSetStatus struct {
 	//
 	// +listType=map
 	// +listMapKey=type
-	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MinItems=0
 	// +kubebuilder:validation:MaxItems=8
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
@@ -125,17 +125,13 @@ type RuleSetStatus struct {
 // -----------------------------------------------------------------------------
 
 // RuleSetCacheServerConfig defines the configuration for the RuleSet cache server.
+// +kubebuilder:validation:MinProperties=0
 type RuleSetCacheServerConfig struct {
 	// pollIntervalSeconds specifies how often the WAF should check for
 	// configuration updates. The value is specified in seconds.
 	//
-	// When omitted, this means the user has no opinion and the platform
-	// will choose a reasonable default, which is subject to change over time.
-	// The current default is 15 seconds.
-	//
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=3600
-	// +kubebuilder:default=15
-	// +optional
+	// +required
 	PollIntervalSeconds int32 `json:"pollIntervalSeconds,omitempty"`
 }

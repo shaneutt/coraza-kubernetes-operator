@@ -1,4 +1,4 @@
-name: PR golangci-lint
+name: kubernetes-api-lint
 
 on:
   pull_request:

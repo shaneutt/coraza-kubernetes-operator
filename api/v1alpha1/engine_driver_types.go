@@ -40,7 +40,6 @@ type DriverConfig struct {
 	Driver DriverType `json:"driver,omitempty,omitzero"`
 	// istio configures the Engine to integrate with Istio service mesh.
 	//
-	// +kubebuilder:validation:MinProperties=0
 	// +optional
 	Istio *IstioDriverConfig `json:"istio,omitempty,omitzero"`
 }

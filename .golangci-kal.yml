@@ -20,6 +20,8 @@ linters:
             - "forbiddenmarkers"
             - "namingconventions"
             - "preferredmarkers"
+            ###### The below linters need to be discussed
+            - "nonpointerstructs"
           lintersConfig:
             defaults:
               preferredDefaultMarker: "kubebuilder:default"
