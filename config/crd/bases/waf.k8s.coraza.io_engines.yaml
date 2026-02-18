@@ -58,14 +58,8 @@ spec:
                   driver specifies the driver configuration for the engine. This
                   determines how the WAF engine will be deployed and integrated with some
                   implementation. Currently only supports Istio ingress Gateways.
+                minProperties: 1
                 properties:
-                  driver:
-                    description: |-
-                      driver defines what is the driver type. Only the matching driver configuration
-                      should be used
-                    maxLength: 128
-                    minLength: 1
-                    type: string
                   istio:
                     description: istio configures the Engine to integrate with Istio
                       service mesh.
@@ -173,8 +167,6 @@ spec:
                     - message: exactly one integration mechanism (Wasm, etc) must
                         be specified
                       rule: '[has(self.wasm)].filter(x, x).size() == 1'
-                required:
-                - driver
                 type: object
                 x-kubernetes-validations:
                 - message: exactly one driver must be specified
