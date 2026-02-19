@@ -24,18 +24,15 @@ import (
 	"github.com/go-logr/logr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
@@ -48,16 +45,6 @@ import (
 
 // +kubebuilder:rbac:groups=waf.k8s.coraza.io,resources=engines,verbs=get;list;watch;patch;update
 // +kubebuilder:rbac:groups=waf.k8s.coraza.io,resources=engines/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=waf.k8s.coraza.io,resources=engines/finalizers,verbs=update
-
-// -----------------------------------------------------------------------------
-// Engine Controller - Consts
-// -----------------------------------------------------------------------------
-
-const (
-	// EngineFinalizer is the finalizer used for Engine resource cleanup.
-	EngineFinalizer = "waf.k8s.coraza.io/engine-finalizer"
-)
 
 // -----------------------------------------------------------------------------
 // Engine Controller
@@ -114,47 +101,6 @@ func (r *EngineReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{Requeue: true}, err
 	}
 
-	// Handle Engine deletion: clean up owned resources (WasmPlugin, etc.) before removing
-	// finalizer. Returns early to requeue if cleanup is incomplete.
-	if !engine.DeletionTimestamp.IsZero() && engine.DeletionTimestamp.Time.Before(metav1.Now().Time) {
-		logDebug(log, req, "Engine", "Handling deletion")
-
-		if controllerutil.ContainsFinalizer(&engine, EngineFinalizer) {
-			logInfo(log, req, "Engine", "Selecting driver and cleaning up")
-			cleanupComplete, err := r.selectDriverCleanup(ctx, log, &engine)
-			if err != nil {
-				logError(log, req, "Engine", err, "Failed to cleanup resources")
-				return ctrl.Result{}, err
-			}
-
-			if !cleanupComplete {
-				logDebug(log, req, "Engine", "Cleanup not yet complete, requeueing")
-				return ctrl.Result{Requeue: true}, nil
-			}
-
-			controllerutil.RemoveFinalizer(&engine, EngineFinalizer)
-			if err := r.Update(ctx, &engine); err != nil {
-				logError(log, req, "Engine", err, "Failed to remove finalizer")
-				return ctrl.Result{}, err
-			}
-
-			r.Recorder.Event(&engine, "Normal", "Deleted", "Engine resources cleaned up")
-		}
-
-		logDebug(log, req, "Engine", "Cleanup handled successfully")
-		return ctrl.Result{}, nil
-	}
-
-	logDebug(log, req, "Engine", "Applying finalizers")
-	if !controllerutil.ContainsFinalizer(&engine, EngineFinalizer) {
-		logDebug(log, req, "Engine", "Adding finalizer")
-		controllerutil.AddFinalizer(&engine, EngineFinalizer)
-		if err := r.Update(ctx, &engine); err != nil {
-			logError(log, req, "Engine", err, "Failed to add finalizer")
-			return ctrl.Result{}, err
-		}
-	}
-
 	logDebug(log, req, "Engine", "Applying conditions")
 	if apimeta.FindStatusCondition(engine.Status.Conditions, "Ready") == nil {
 		patch := client.MergeFrom(engine.DeepCopy())
@@ -185,30 +131,6 @@ func (r *EngineReconciler) selectDriver(ctx context.Context, log logr.Logger, re
 		}
 	default:
 		return ctrl.Result{}, r.handleInvalidDriverConfiguration(ctx, log, req, &engine)
-	}
-}
-
-// -----------------------------------------------------------------------------
-// Engine Controller - Driver Cleanup
-// -----------------------------------------------------------------------------
-
-func (r *EngineReconciler) selectDriverCleanup(ctx context.Context, log logr.Logger, engine *wafv1alpha1.Engine) (bool, error) {
-	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: engine.Namespace, Name: engine.Name}}
-	switch {
-	case engine.Spec.Driver.Istio != nil:
-		switch {
-		case engine.Spec.Driver.Istio.Wasm != nil:
-			logDebug(log, req, "Engine", "Using Istio driver cleanup with WASM mode")
-			return r.cleanupIstioEngineWithWasm(ctx, log, engine)
-		default:
-			err := fmt.Errorf("istio driver specified but no integration mode configured during cleanup")
-			logError(log, req, "Engine", err, "Invalid driver configuration")
-			return false, err
-		}
-	default:
-		err := fmt.Errorf("no driver specified during cleanup")
-		logError(log, req, "Engine", err, "Invalid driver configuration")
-		return false, err
 	}
 }
 

@@ -27,7 +27,6 @@ Cross-namespace references between Engine, RuleSet, and ConfigMap are explicitly
 
 - **Status conditions:** Updates must set all three condition types (Ready, Progressing, Degraded). Missing one leaves stale status.
 - **Owner references:** Any resource the operator creates must have an owner reference back to the parent CRD for garbage collection.
-- **Finalizers:** Engine uses `waf.k8s.coraza.io/engine-finalizer`. Cleanup logic must run before finalizer removal. Order matters.
 
 ## Style and Conventions
 
