@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -78,7 +77,6 @@ func (r *EngineReconciler) provisionIstioEngineWithWasm(ctx context.Context, log
 	logDebug(log, req, "Engine", "Updating status after successful provisioning")
 	patch := client.MergeFrom(engine.DeepCopy())
 	setStatusReady(log, req, "Engine", &engine.Status.Conditions, engine.Generation, "Configured", "WasmPlugin successfully created/updated")
-	setStatusEngineOwnedResources(&engine, wasmPlugin.GetNamespace(), wasmPlugin.GetName())
 	if err := r.Status().Patch(ctx, &engine, patch); err != nil {
 		logError(log, req, "Engine", err, "Failed to patch status")
 		return ctrl.Result{}, err
@@ -133,30 +131,4 @@ func (r *EngineReconciler) buildWasmPlugin(engine *wafv1alpha1.Engine) *unstruct
 	})
 
 	return wasmPlugin
-}
-
-// -----------------------------------------------------------------------------
-// Engine Controller - Istio Driver - Status Helpers
-// -----------------------------------------------------------------------------
-
-// setStatusEngineOwnedResources updates the Engine's OwnedResources status field
-// with the WasmPlugin reference. If a WasmPlugin entry already exists, it updates it;
-// otherwise, it appends a new entry.
-func setStatusEngineOwnedResources(engine *wafv1alpha1.Engine, namespace, name string) {
-	wasmPluginRef := corev1.ObjectReference{
-		APIVersion: "extensions.istio.io/v1alpha1",
-		Kind:       "WasmPlugin",
-		Name:       name,
-		Namespace:  namespace,
-	}
-
-	for i := range engine.Status.OwnedResources {
-		if engine.Status.OwnedResources[i].Kind == "WasmPlugin" &&
-			engine.Status.OwnedResources[i].APIVersion == "extensions.istio.io/v1alpha1" {
-			engine.Status.OwnedResources[i] = wasmPluginRef
-			return
-		}
-	}
-
-	engine.Status.OwnedResources = append(engine.Status.OwnedResources, wasmPluginRef)
 }

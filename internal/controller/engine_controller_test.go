@@ -126,7 +126,7 @@ func TestEngineReconciler_ReconcileIstioDriver(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, result.Requeue)
 
-	t.Log("Verifying engine status and owned resources")
+	t.Log("Verifying engine status")
 	var updated wafv1alpha1.Engine
 	err = k8sClient.Get(ctx, types.NamespacedName{
 		Name:      engine.Name,
@@ -138,17 +138,6 @@ func TestEngineReconciler_ReconcileIstioDriver(t *testing.T) {
 	assert.Equal(t, "Ready", condition.Type)
 	assert.Equal(t, metav1.ConditionTrue, condition.Status)
 	assert.Equal(t, "Configured", condition.Reason)
-
-	t.Log("Verifying owned resources include WasmPlugin")
-	assert.NotEmpty(t, updated.Status.OwnedResources)
-	hasWasmPlugin := false
-	for _, res := range updated.Status.OwnedResources {
-		if res.Kind == "WasmPlugin" && res.APIVersion == "extensions.istio.io/v1alpha1" {
-			hasWasmPlugin = true
-			break
-		}
-	}
-	assert.True(t, hasWasmPlugin, "Should have WasmPlugin in owned resources")
 }
 
 func TestEngineReconciler_StatusUpdateHandling(t *testing.T) {

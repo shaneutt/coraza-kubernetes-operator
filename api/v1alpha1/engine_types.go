@@ -138,12 +138,6 @@ type EngineStatus struct {
 	// +patchMergeKey=type
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
-
-	// OwnedResources lists the resources created and managed by this Engine.
-	//
-	// +listType=atomic
-	// +optional
-	OwnedResources []corev1.ObjectReference `json:"ownedResources,omitempty"`
 }
 
 // -----------------------------------------------------------------------------
