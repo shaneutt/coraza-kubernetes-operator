@@ -22,7 +22,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -197,41 +196,12 @@ func TestEngineReconciler_ValidationRejection(t *testing.T) {
 			name: "ruleset with empty name",
 			engineFunc: func() *wafv1alpha1.Engine {
 				engine := utils.NewTestEngine(utils.EngineOptions{})
-				engine.Spec.RuleSet = corev1.ObjectReference{
-					APIVersion: "waf.k8s.coraza.io/v1alpha1",
-					Kind:       "RuleSet",
-					Name:       "",
+				engine.Spec.RuleSet = wafv1alpha1.RuleSetReference{
+					Name: "",
 				}
 				return engine
 			},
-			expectedError: "ruleSet name must not be empty",
-		},
-		{
-			name: "ruleset with unsupported kind",
-			engineFunc: func() *wafv1alpha1.Engine {
-				engine := utils.NewTestEngine(utils.EngineOptions{})
-				engine.Spec.RuleSet = corev1.ObjectReference{
-					APIVersion: "v1",
-					Kind:       "ConfigMap",
-					Name:       "test",
-				}
-				return engine
-			},
-			expectedError: "only waf.k8s.coraza.io/v1alpha1 RuleSet kind is supported",
-		},
-		{
-			name: "ruleset with cross-namespace reference",
-			engineFunc: func() *wafv1alpha1.Engine {
-				engine := utils.NewTestEngine(utils.EngineOptions{})
-				engine.Spec.RuleSet = corev1.ObjectReference{
-					APIVersion: "waf.k8s.coraza.io/v1alpha1",
-					Kind:       "RuleSet",
-					Name:       "test",
-					Namespace:  "other-namespace",
-				}
-				return engine
-			},
-			expectedError: "cross-namespace references are not currently supported",
+			expectedError: "spec.ruleSet.name in body should be at least 1 chars long",
 		},
 		{
 			name: "no driver specified",

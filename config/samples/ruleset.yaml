@@ -75,15 +75,7 @@ metadata:
   name: default-ruleset
 spec:
   rules:
-    - apiVersion: v1
-      kind: ConfigMap
-      name: base-rules
-    - apiVersion: v1
-      kind: ConfigMap
-      name: sqli-rules
-    - apiVersion: v1
-      kind: ConfigMap
-      name: xss-rules
-    - apiVersion: v1
-      kind: ConfigMap
-      name: no-evil-monkeys
+    - name: base-rules
+    - name: sqli-rules
+    - name: xss-rules
+    - name: no-evil-monkeys

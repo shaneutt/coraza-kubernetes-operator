@@ -91,11 +91,7 @@ func (r *EngineReconciler) provisionIstioEngineWithWasm(ctx context.Context, log
 // -----------------------------------------------------------------------------
 
 func (r *EngineReconciler) buildWasmPlugin(engine *wafv1alpha1.Engine) *unstructured.Unstructured {
-	namespace := engine.Spec.RuleSet.Namespace
-	if namespace == "" {
-		namespace = engine.Namespace
-	}
-	rulesetKey := fmt.Sprintf("%s/%s", namespace, engine.Spec.RuleSet.Name)
+	rulesetKey := fmt.Sprintf("%s/%s", engine.Namespace, engine.Spec.RuleSet.Name)
 
 	pluginConfig := map[string]interface{}{
 		"cache_server_instance": rulesetKey,
