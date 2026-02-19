@@ -1,5 +1,7 @@
 name: Issue Triage
 
+permissions: read-all
+
 on:
   issues:
     types:
