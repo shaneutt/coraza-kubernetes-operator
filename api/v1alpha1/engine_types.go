@@ -102,10 +102,16 @@ type EngineSpec struct {
 	// failurePolicy determines the behavior when the WAF is not ready or
 	// encounters errors. Valid values are:
 	//
-	// - "Fail": Block traffic when the WAF is not ready or encounters errors
-	// - "Allow": Allow traffic through when the WAF is not ready or encounters errors
+	// - "fail": Block traffic when the WAF is not ready or encounters errors
+	// - "allow": Allow traffic through when the WAF is not ready or encounters errors
+	//
+	// When omitted, this means the user has no opinion and the platform
+	// will choose a reasonable default, which is subject to change over time.
+	//
+	// The current default is fail.
 	//
 	// +required
+	// +kubebuilder:default=fail
 	FailurePolicy FailurePolicy `json:"failurePolicy,omitempty"`
 }
 
@@ -130,14 +136,14 @@ type EngineStatus struct {
 	// +listType=map
 	// +listMapKey=type
 	// +optional
-	// +kubebuilder:validation:MinItems=0
+	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=8
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// ownedResources lists the resources created and managed by this Engine.
 	//
 	// +listType=atomic
-	// +kubebuilder:validation:MinItems=0
+	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=8
 	// +optional
 	OwnedResources []corev1.ObjectReference `json:"ownedResources,omitempty"`

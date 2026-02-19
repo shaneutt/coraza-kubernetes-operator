@@ -78,6 +78,7 @@ spec:
                             pattern: ^oci://
                             type: string
                           mode:
+                            default: gateway
                             description: |-
                               mode specifies what mechanism will be used to integrate the WAF with
                               Istio.
@@ -96,9 +97,14 @@ spec:
                             minProperties: 1
                             properties:
                               pollIntervalSeconds:
+                                default: 15
                                 description: |-
                                   pollIntervalSeconds specifies how often the WAF should check for
                                   configuration updates. The value is specified in seconds.
+
+                                  When omitted, this means the user has no opinion and the platform
+                                  will choose a reasonable default, which is subject to change over time.
+                                  The current default is 15 seconds.
                                 format: int32
                                 maximum: 3600
                                 minimum: 1
@@ -172,12 +178,18 @@ spec:
                 - message: exactly one driver must be specified
                   rule: '[has(self.istio)].filter(x, x).size() == 1'
               failurePolicy:
+                default: fail
                 description: |-
                   failurePolicy determines the behavior when the WAF is not ready or
                   encounters errors. Valid values are:
 
-                  - "Fail": Block traffic when the WAF is not ready or encounters errors
-                  - "Allow": Allow traffic through when the WAF is not ready or encounters errors
+                  - "fail": Block traffic when the WAF is not ready or encounters errors
+                  - "allow": Allow traffic through when the WAF is not ready or encounters errors
+
+                  When omitted, this means the user has no opinion and the platform
+                  will choose a reasonable default, which is subject to change over time.
+
+                  The current default is fail.
                 enum:
                 - fail
                 - allow
@@ -310,7 +322,7 @@ spec:
                   - type
                   type: object
                 maxItems: 8
-                minItems: 0
+                minItems: 1
                 type: array
                 x-kubernetes-list-map-keys:
                 - type
@@ -363,7 +375,7 @@ spec:
                   type: object
                   x-kubernetes-map-type: atomic
                 maxItems: 8
-                minItems: 0
+                minItems: 1
                 type: array
                 x-kubernetes-list-type: atomic
             type: object

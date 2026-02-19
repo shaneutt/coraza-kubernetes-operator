@@ -22,6 +22,9 @@ linters:
             - "preferredmarkers"
             ###### The below linters need to be discussed
             - "nonpointerstructs"
+            - "defaultorrequired"
+            - "defaults"
+            - "optionalfields"
           lintersConfig:
             defaults:
               preferredDefaultMarker: "kubebuilder:default"

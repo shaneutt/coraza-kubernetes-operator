@@ -114,7 +114,7 @@ type RuleSetStatus struct {
 	//
 	// +listType=map
 	// +listMapKey=type
-	// +kubebuilder:validation:MinItems=0
+	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=8
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
@@ -130,8 +130,13 @@ type RuleSetCacheServerConfig struct {
 	// pollIntervalSeconds specifies how often the WAF should check for
 	// configuration updates. The value is specified in seconds.
 	//
+	// When omitted, this means the user has no opinion and the platform
+	// will choose a reasonable default, which is subject to change over time.
+	// The current default is 15 seconds.
+	//
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=3600
+	// +kubebuilder:default=15
 	// +required
 	PollIntervalSeconds int32 `json:"pollIntervalSeconds,omitempty"`
 }

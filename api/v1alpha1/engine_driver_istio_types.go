@@ -53,6 +53,7 @@ type IstioWasmConfig struct {
 	// Currently only supports "Gateway" mode, utilizing Gateway API resources.
 	//
 	// +required
+	// +kubebuilder:default=gateway
 	Mode IstioIntegrationMode `json:"mode,omitempty"`
 
 	// workloadSelector specifies the selection criteria for attaching the WAF to
