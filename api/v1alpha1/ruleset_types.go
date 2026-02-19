@@ -114,7 +114,7 @@ type RuleSetStatus struct {
 	//
 	// +listType=map
 	// +listMapKey=type
-	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MinItems=0
 	// +kubebuilder:validation:MaxItems=8
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
@@ -125,7 +125,6 @@ type RuleSetStatus struct {
 // -----------------------------------------------------------------------------
 
 // RuleSetCacheServerConfig defines the configuration for the RuleSet cache server.
-// +kubebuilder:validation:MinProperties=1
 type RuleSetCacheServerConfig struct {
 	// pollIntervalSeconds specifies how often the WAF should check for
 	// configuration updates. The value is specified in seconds.

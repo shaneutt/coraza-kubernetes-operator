@@ -136,14 +136,14 @@ type EngineStatus struct {
 	// +listType=map
 	// +listMapKey=type
 	// +optional
-	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MinItems=0
 	// +kubebuilder:validation:MaxItems=8
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// ownedResources lists the resources created and managed by this Engine.
 	//
 	// +listType=atomic
-	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MinItems=0
 	// +kubebuilder:validation:MaxItems=8
 	// +optional
 	OwnedResources []corev1.ObjectReference `json:"ownedResources,omitempty"`
