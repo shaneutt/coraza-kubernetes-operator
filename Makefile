@@ -173,6 +173,24 @@ test.integration:
 	go clean -testcache
 	KIND_CLUSTER_NAME=${KIND_CLUSTER_NAME} ISTIO_VERSION=${ISTIO_VERSION} go test -tags=integration ./test/integration/... -v
 
+
+# -------------------------------------------------------------------------------
+# Coraza Coreruleset
+# -------------------------------------------------------------------------------
+LOCALRULES ?= $(shell pwd)/tmp/rules
+$(LOCALRULES):
+	mkdir -p "$(LOCALRULES)"
+
+.PHONY: coraza.generaterules
+coraza.generaterules: $(LOCALRULES)
+	python3 hack/generate_coreruleset_configmaps.py --ignore-pmFromFile > $(LOCALRULES)/rules.yaml
+
+.PHONY: coraza.coreruleset
+coraza.coreruleset: coraza.generaterules
+	kubectl delete -f $(LOCALRULES)/*.yaml
+	kubectl apply --server-side -f $(LOCALRULES)/*.yaml
+
+
 # -------------------------------------------------------------------------------
 # Helm
 # -------------------------------------------------------------------------------
