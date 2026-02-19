@@ -114,7 +114,7 @@ func cleanup() {
 // -----------------------------------------------------------------------------
 
 func kubectl(args ...string) *exec.Cmd {
-	cmdArgs := []string{"--context", fmt.Sprintf("kind-%s", kindClusterName), "-n", namespace}
+	cmdArgs := []string{"--context", fmt.Sprintf("kind-%s", kindClusterName), "-n", namespace} //nolint:prealloc
 	cmdArgs = append(cmdArgs, args...)
 	return exec.Command("kubectl", cmdArgs...)
 }

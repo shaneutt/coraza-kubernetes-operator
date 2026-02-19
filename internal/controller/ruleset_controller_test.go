@@ -92,7 +92,7 @@ func TestRuleSetReconciler_ReconcileConfigMaps(t *testing.T) {
 			ruleSetCache := cache.NewRuleSetCache()
 
 			t.Logf("Creating %d ConfigMap(s)", len(tt.configMaps))
-			var refs []corev1.ObjectReference
+			var refs []corev1.ObjectReference //nolint:prealloc
 			var names []string
 			for name := range tt.configMaps {
 				names = append(names, name)
