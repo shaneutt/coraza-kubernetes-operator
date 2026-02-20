@@ -4,8 +4,6 @@ metadata:
   name: coraza
 spec:
   ruleSet:
-    apiVersion: waf.k8s.coraza.io/v1alpha1
-    kind: RuleSet
     name: default-ruleset
   failurePolicy: fail
   driver:

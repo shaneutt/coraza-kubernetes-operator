@@ -32,7 +32,7 @@ import (
 type RuleSetOptions struct {
 	Name      string
 	Namespace string
-	Rules     []corev1.ObjectReference
+	Rules     []wafv1alpha1.RuleSourceReference
 }
 
 // NewTestRuleSet creates a test RuleSet resource with sensible defaults
@@ -44,12 +44,8 @@ func NewTestRuleSet(opts RuleSetOptions) *wafv1alpha1.RuleSet {
 		opts.Namespace = "default"
 	}
 	if opts.Rules == nil {
-		opts.Rules = []corev1.ObjectReference{
-			{
-				APIVersion: "v1",
-				Kind:       "ConfigMap",
-				Name:       "test-rules",
-			},
+		opts.Rules = []wafv1alpha1.RuleSourceReference{
+			{Name: "test-rules"},
 		}
 	}
 
@@ -86,7 +82,6 @@ type EngineOptions struct {
 	Name                 string
 	Namespace            string
 	RuleSetName          string
-	RuleSetNamespace     string
 	WasmImage            string
 	PollIntervalSeconds  int32
 	WorkloadLabels       map[string]string
@@ -105,9 +100,6 @@ func NewTestEngine(opts EngineOptions) *wafv1alpha1.Engine {
 	if opts.RuleSetName == "" {
 		opts.RuleSetName = "test-ruleset"
 	}
-	if opts.RuleSetNamespace == "" {
-		opts.RuleSetNamespace = opts.Namespace
-	}
 	if opts.WasmImage == "" {
 		opts.WasmImage = "oci://fake-registry.io/fake-image:latest"
 	}
@@ -124,23 +116,15 @@ func NewTestEngine(opts EngineOptions) *wafv1alpha1.Engine {
 		opts.FailurePolicy = wafv1alpha1.FailurePolicyFail
 	}
 
-	ruleSetRef := corev1.ObjectReference{
-		APIVersion: "waf.k8s.coraza.io/v1alpha1",
-		Kind:       "RuleSet",
-		Name:       opts.RuleSetName,
-	}
-
-	if opts.RuleSetNamespace != opts.Namespace {
-		ruleSetRef.Namespace = opts.RuleSetNamespace
-	}
-
 	return &wafv1alpha1.Engine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      opts.Name,
 			Namespace: opts.Namespace,
 		},
 		Spec: wafv1alpha1.EngineSpec{
-			RuleSet: ruleSetRef,
+			RuleSet: wafv1alpha1.RuleSetReference{
+				Name: opts.RuleSetName,
+			},
 			Driver: wafv1alpha1.DriverConfig{
 				Istio: &wafv1alpha1.IstioDriverConfig{
 					Wasm: &wafv1alpha1.IstioWasmConfig{

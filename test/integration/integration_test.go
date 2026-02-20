@@ -145,9 +145,7 @@ func TestIntegration(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, found)
 	rules = append(rules, map[string]interface{}{
-		"apiVersion": "v1",
-		"kind":       "ConfigMap",
-		"name":       "no-sinister-monkeys",
+		"name": "no-sinister-monkeys",
 	})
 	err = unstructured.SetNestedSlice(ruleSetObj.Object, rules, "spec", "rules")
 	require.NoError(t, err)

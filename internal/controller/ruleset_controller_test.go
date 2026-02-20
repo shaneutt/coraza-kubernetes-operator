@@ -92,7 +92,7 @@ func TestRuleSetReconciler_ReconcileConfigMaps(t *testing.T) {
 			ruleSetCache := cache.NewRuleSetCache()
 
 			t.Logf("Creating %d ConfigMap(s)", len(tt.configMaps))
-			var refs []corev1.ObjectReference
+			var refs []wafv1alpha1.RuleSourceReference
 			var names []string
 			for name := range tt.configMaps {
 				names = append(names, name)
@@ -111,11 +111,7 @@ func TestRuleSetReconciler_ReconcileConfigMaps(t *testing.T) {
 					}
 				})
 
-				refs = append(refs, corev1.ObjectReference{
-					APIVersion: "v1",
-					Kind:       "ConfigMap",
-					Name:       name,
-				})
+				refs = append(refs, wafv1alpha1.RuleSourceReference{Name: name})
 			}
 
 			t.Log("Creating RuleSet referencing ConfigMaps")
@@ -168,12 +164,8 @@ func TestRuleSetReconciler_MissingConfigMap(t *testing.T) {
 	ruleSet := utils.NewTestRuleSet(utils.RuleSetOptions{
 		Name:      "missing-cm-ruleset",
 		Namespace: testNamespace,
-		Rules: []corev1.ObjectReference{
-			{
-				APIVersion: "v1",
-				Kind:       "ConfigMap",
-				Name:       "non-existent",
-			},
+		Rules: []wafv1alpha1.RuleSourceReference{
+			{Name: "non-existent"},
 		},
 	})
 	err := k8sClient.Create(ctx, ruleSet)
@@ -228,8 +220,8 @@ func TestRuleSetReconciler_ConfigMapMissingRulesKey(t *testing.T) {
 	ruleSet := utils.NewTestRuleSet(utils.RuleSetOptions{
 		Name:      "invalid-ruleset",
 		Namespace: testNamespace,
-		Rules: []corev1.ObjectReference{
-			{APIVersion: "v1", Kind: "ConfigMap", Name: "invalid-cm"},
+		Rules: []wafv1alpha1.RuleSourceReference{
+			{Name: "invalid-cm"},
 		},
 	})
 	err = k8sClient.Create(ctx, ruleSet)
@@ -264,63 +256,34 @@ func TestRuleSetReconciler_ValidationRejection(t *testing.T) {
 	tests := []struct {
 		name          string
 		ruleSetName   string
-		rules         []corev1.ObjectReference
+		rules         []wafv1alpha1.RuleSourceReference
 		expectedError string
 	}{
 		{
 			name:          "no rules specified",
 			ruleSetName:   "no-rules-ruleset",
-			rules:         []corev1.ObjectReference{},
+			rules:         []wafv1alpha1.RuleSourceReference{},
 			expectedError: "spec.rules in body should have at least 1 items",
 		},
 		{
 			name:        "too many rules",
 			ruleSetName: "too-many-rules-ruleset",
-			rules: func() []corev1.ObjectReference {
-				rules := make([]corev1.ObjectReference, 2049)
+			rules: func() []wafv1alpha1.RuleSourceReference {
+				rules := make([]wafv1alpha1.RuleSourceReference, 2049)
 				for i := range rules {
-					rules[i] = corev1.ObjectReference{APIVersion: "v1", Kind: "ConfigMap", Name: "test"}
+					rules[i] = wafv1alpha1.RuleSourceReference{Name: "test"}
 				}
 				return rules
 			}(),
 			expectedError: "spec.rules: Too many",
 		},
 		{
-			name:        "unsupported kind",
-			ruleSetName: "unsupported-ruleset",
-			rules: []corev1.ObjectReference{
-				{
-					APIVersion: "v1",
-					Kind:       "UnsupportedKind",
-					Name:       "test",
-				},
+			name:        "empty rule name",
+			ruleSetName: "empty-name-ruleset",
+			rules: []wafv1alpha1.RuleSourceReference{
+				{Name: ""},
 			},
-			expectedError: "only core/v1 ConfigMap kind is supported for rule sources",
-		},
-		{
-			name:        "wrong API version",
-			ruleSetName: "wrong-apiversion-ruleset",
-			rules: []corev1.ObjectReference{
-				{
-					APIVersion: "v2",
-					Kind:       "ConfigMap",
-					Name:       "test",
-				},
-			},
-			expectedError: "only core/v1 ConfigMap kind is supported for rule sources",
-		},
-		{
-			name:        "cross-namespace reference",
-			ruleSetName: "cross-ns-ruleset",
-			rules: []corev1.ObjectReference{
-				{
-					APIVersion: "v1",
-					Kind:       "ConfigMap",
-					Name:       "test",
-					Namespace:  "other-namespace",
-				},
-			},
-			expectedError: "cross-namespace references are not currently supported",
+			expectedError: "spec.rules[0].name in body should be at least 1 chars long",
 		},
 	}
 
@@ -359,8 +322,8 @@ func TestRuleSetReconciler_UpdateCache(t *testing.T) {
 	ruleSet := utils.NewTestRuleSet(utils.RuleSetOptions{
 		Name:      "update-ruleset",
 		Namespace: testNamespace,
-		Rules: []corev1.ObjectReference{
-			{APIVersion: "v1", Kind: "ConfigMap", Name: "update-rules"},
+		Rules: []wafv1alpha1.RuleSourceReference{
+			{Name: "update-rules"},
 		},
 	})
 	err = k8sClient.Create(ctx, ruleSet)

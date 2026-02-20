@@ -17,9 +17,17 @@ limitations under the License.
 package v1alpha1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+// RuleSetReference is a reference to a RuleSet resource.
+type RuleSetReference struct {
+	// Name is the name of the RuleSet in the same namespace as the Engine.
+	//
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+}
 
 // -----------------------------------------------------------------------------
 // Engine - Schema Registration
@@ -84,13 +92,11 @@ type EngineList struct {
 // EngineSpec defines the desired state of an Engine.
 type EngineSpec struct {
 	// RuleSet specifies the RuleSet resource that will be used to load rules
-	// into the Engine.
+	// into the Engine. The referenced RuleSet must be in the same namespace
+	// as the Engine.
 	//
 	// +required
-	// +kubebuilder:validation:XValidation:rule="self.kind == 'RuleSet' && self.apiVersion == 'waf.k8s.coraza.io/v1alpha1'",message="only waf.k8s.coraza.io/v1alpha1 RuleSet kind is supported"
-	// +kubebuilder:validation:XValidation:rule="!has(self.namespace) || self.namespace == ''",message="cross-namespace references are not currently supported"
-	// +kubebuilder:validation:XValidation:rule="self.name != ''",message="ruleSet name must not be empty"
-	RuleSet corev1.ObjectReference `json:"ruleSet"`
+	RuleSet RuleSetReference `json:"ruleSet"`
 
 	// Driver specifies the driver configuration for the engine. This
 	// determines how the WAF engine will be deployed and integrated with some
