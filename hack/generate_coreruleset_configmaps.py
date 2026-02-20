@@ -3,15 +3,15 @@
 """
 Generate Kubernetes ConfigMaps from OWASP CoreRuleSet rules.
 
-This script processes the CoreRuleSet dependency and creates ConfigMaps
+This script processes CoreRuleSet rules from a specified directory and creates ConfigMaps
 for each rule file that contains SecRule or SecAction directives. Individual rules
 containing @pmFromFile directives can optionally be removed with warnings via
 the --ignore-pmFromFile flag. Rules with specific IDs can also be excluded
-via the --ignore-rules argument.
+via the --ignore-rules argument. The X-CRS-Test rule can be included via
+the --include-test-rule flag.
 """
 
 import argparse
-import subprocess
 import sys
 import re
 from pathlib import Path
@@ -43,48 +43,31 @@ data:
      setvar:tx.crs_setup_version=4230"
 """
 
+# X-CRS-Test rule (optional)
+X_CRS_TEST_RULE = """    SecRule REQUEST_HEADERS:X-CRS-Test "@rx ^.*$" \\
+     "id:999999,\\
+     pass,\\
+     phase:1,\\
+     log,\\
+     msg:'X-CRS-Test %{MATCHED_VAR}',\\
+     ctl:ruleRemoveById=1-999999"
+"""
 
-def run_command(cmd: List[str]) -> Tuple[int, str, str]:
-    """Run a command and return exit code, stdout, and stderr."""
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        check=False
-    )
-    return result.returncode, result.stdout.strip(), result.stderr.strip()
 
+def get_rule_files(rules_dir: str) -> List[Path]:
+    """Get all .conf files from the rules directory."""
+    rules_path = Path(rules_dir)
 
-def get_module_directory() -> str:
-    """Get the directory path of the coreruleset module."""
-    print("Getting coreruleset module directory...", file=sys.stderr)
-    returncode, stdout, stderr = run_command([
-        "go", "list", "-m", "-f", "{{.Dir}}",
-        "github.com/corazawaf/coraza-coreruleset/v4"
-    ])
-
-    if returncode != 0:
-        print(f"ERROR: Failed to get module directory: {stderr}", file=sys.stderr)
+    if not rules_path.exists():
+        print(f"ERROR: Rules directory not found: {rules_path}", file=sys.stderr)
         sys.exit(1)
 
-    if not stdout:
-        print("ERROR: Module directory not found. Make sure the dependency is installed.", file=sys.stderr)
+    if not rules_path.is_dir():
+        print(f"ERROR: Path is not a directory: {rules_path}", file=sys.stderr)
         sys.exit(1)
 
-    print(f"Found module at: {stdout}", file=sys.stderr)
-    return stdout
-
-
-def get_rule_files(module_dir: str) -> List[Path]:
-    """Get all .conf files from the @owasp_crs directory."""
-    rules_dir = Path(module_dir) / "rules" / "@owasp_crs"
-
-    if not rules_dir.exists():
-        print(f"ERROR: Rules directory not found: {rules_dir}", file=sys.stderr)
-        sys.exit(1)
-
-    conf_files = sorted(rules_dir.glob("*.conf"))
-    print(f"Found {len(conf_files)} .conf files", file=sys.stderr)
+    conf_files = sorted(rules_path.glob("*.conf"))
+    print(f"Found {len(conf_files)} .conf files in {rules_path}", file=sys.stderr)
     return conf_files
 
 
@@ -272,17 +255,17 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Generate ConfigMaps without ignoring any rules
-  %(prog)s
+  # Generate ConfigMaps from a rules directory
+  %(prog)s --rules-dir /path/to/coreruleset/rules/@owasp_crs
 
   # Ignore rules containing @pmFromFile directives
-  %(prog)s --ignore-pmFromFile
+  %(prog)s --rules-dir /path/to/rules --ignore-pmFromFile
 
   # Ignore specific rule IDs
-  %(prog)s --ignore-rules 949110,949111,980130
+  %(prog)s --rules-dir /path/to/rules --ignore-rules 949110,949111,980130
 
-  # Ignore rules using comma-separated list and @pmFromFile
-  %(prog)s --ignore-rules "949110, 949111, 980130" --ignore-pmFromFile
+  # Include X-CRS-Test rule and ignore @pmFromFile
+  %(prog)s --rules-dir /path/to/rules --include-test-rule --ignore-pmFromFile
 """
     )
     parser.add_argument(
@@ -296,6 +279,17 @@ Examples:
         action='store_true',
         help='Ignore rules containing @pmFromFile directives (not supported by Coraza)'
     )
+    parser.add_argument(
+        '--include-test-rule',
+        action='store_true',
+        help='Include the X-CRS-Test rule in the base rules ConfigMap'
+    )
+    parser.add_argument(
+        '--rules-dir',
+        type=str,
+        required=True,
+        help='Directory containing the CoreRuleSet rules (e.g., /path/to/coreruleset/rules/@owasp_crs)'
+    )
     args = parser.parse_args()
 
     # Parse ignore list
@@ -305,11 +299,8 @@ Examples:
         if ignore_rule_ids:
             print(f"Ignoring rule IDs: {', '.join(sorted(ignore_rule_ids))}", file=sys.stderr)
 
-    # Get module directory
-    module_dir = get_module_directory()
-
     # Get all rule files
-    rule_files = get_rule_files(module_dir)
+    rule_files = get_rule_files(args.rules_dir)
 
     # Process each file
     processed_count = 0
@@ -345,7 +336,10 @@ Examples:
     print(f"{'='*60}\n", file=sys.stderr)
 
     # Print base-rules ConfigMap first
-    print(BASE_RULES_CONFIGMAP, end="")
+    base_rules_output = BASE_RULES_CONFIGMAP.rstrip()
+    if args.include_test_rule:
+        base_rules_output += "\n" + X_CRS_TEST_RULE
+    print(base_rules_output)
 
     # Print generated ConfigMaps
     for configmap in configmaps:
