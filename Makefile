@@ -15,6 +15,8 @@ CONTAINER_TOOL ?= docker
 
 KIND_CLUSTER_NAME ?= coraza-kubernetes-operator-integration
 ISTIO_VERSION ?= 1.28.2
+METALLB_VERSION ?= 0.15.3
+METALLB_POOL_SIZE ?= 128 # Defines the size of MetalLB pool, when being used
 
 VERSION ?= dev
 CONTROLLER_MANAGER_CONTAINER_IMAGE_BASE ?= ghcr.io/networking-incubator/coraza-kubernetes-operator
@@ -137,7 +139,7 @@ lint.config: golangci-lint
 
 .PHONY: cluster.kind
 cluster.kind:
-	ISTIO_VERSION=${ISTIO_VERSION} python3 hack/kind_cluster.py setup
+	ISTIO_VERSION=${ISTIO_VERSION} METALLB_VERSION=${METALLB_VERSION} METALLB_POOL_SIZE=${METALLB_POOL_SIZE} python3 hack/kind_cluster.py setup
 
 .PHONY: cluster.load-images
 cluster.load-images:

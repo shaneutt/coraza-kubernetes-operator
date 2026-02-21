@@ -8,6 +8,8 @@ import subprocess
 import argparse
 import os
 import sys
+import ipaddress
+import json
 
 default_namespace: str = "integration-tests"
 gateway_api: str = (
@@ -28,8 +30,46 @@ def get_istio_version() -> str:
     return istio_version
 
 
-def run(cmd: str, check: bool = True) -> subprocess.CompletedProcess[bytes]:
-    return subprocess.run(cmd, shell=True, check=check)
+def get_kind_network_range() -> str:
+    """Get the Network range used by kind network, to be used during LoadBalancer deployment"""
+    result = run("docker network inspect kind", check=False, capture_output=True)
+    if result.returncode != 0:
+        print("ERROR: Could not get the kind network range", file=sys.stderr)
+        sys.exit(1)
+    try:
+        metallb_pool_size = os.environ.get("METALLB_POOL_SIZE")
+        if not metallb_pool_size:
+            metallb_pool_size = "128"
+        metallb_pool_size_int = int(metallb_pool_size)
+        if metallb_pool_size_int > 255 or metallb_pool_size_int < 1:
+            print(f"WARNING: Unusual METALLB_POOL_SIZE: {metallb_pool_size_int}", file=sys.stderr)
+        # result.stdout is str because capture_output=True uses text=True
+        kind_network = json.loads(result.stdout)
+        ipam_config = kind_network[0].get("IPAM", {}).get("Config", [])
+        if not ipam_config:
+            raise ValueError(f"No IPAM configuration found for network: {kind_network}")
+        ipv4_config = next((c for c in ipam_config if ":" not in c.get("Subnet", "")), None)
+        if not ipv4_config:
+            raise ValueError("No IPv4 configuration found.")
+        cidr = ipv4_config.get("IPRange") or ipv4_config.get("Subnet")
+        net = ipaddress.ip_network(cidr)
+        broadcast = net.broadcast_address
+        last_pool_ip = broadcast - 1 # eg.: 172.18.255.254
+        first_pool_ip = broadcast - metallb_pool_size_int # eg.: 172.18.255.244
+        return f"{first_pool_ip}-{last_pool_ip}"
+    except Exception as e:
+        print(f"ERROR: Invalid IP address range: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def run(cmd: str, check: bool = True, capture_output: bool = False) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        cmd,
+        shell=True,
+        check=check,
+        capture_output=capture_output,
+        text=capture_output  # Use text mode when capturing output for easier handling
+    )
 
 
 def get_kind_context(name: str) -> str:
@@ -59,6 +99,65 @@ def deploy_gateway_api_crds(context: str) -> None:
     print("Deploying Gateway API CRDs")
     run(f"kubectl --context {context} apply -f {gateway_api}")
 
+def deploy_metallb(context: str) -> bool:
+    metallb_version = os.environ.get("METALLB_VERSION")
+    if not metallb_version:
+        print("WARNING: METALLB_VERSION is not set, skipping MetalLB deployment", file=sys.stderr)
+        return False
+    print("Deploying MetalLB")
+    try:
+        run(
+            f"kubectl --context {context} apply --server-side "
+            f"-f https://raw.githubusercontent.com/metallb/metallb/v{metallb_version}/config/manifests/metallb-native.yaml",
+            capture_output=True
+        )
+        run(
+            f"kubectl --context {context} wait --for=condition=Available "
+            f"deployment/controller -n metallb-system --timeout=300s",
+            capture_output=True
+        )
+        # Wait for webhook to be ready to avoid race condition with CRD creation
+        run(
+            f"kubectl --context {context} wait --for=condition=Ready "
+            f"pod -l component=webhook-server -n metallb-system --timeout=300s",
+            check=False,  # Webhook might not exist in all versions
+            capture_output=True
+        )
+        return True
+
+    except subprocess.CalledProcessError as e:
+        print("ERROR: deploying MetalLB: kubectl command failed", file=sys.stderr)
+        if e.stdout:
+            print("kubectl stdout:", e.stdout, file=sys.stderr)
+        if e.stderr:
+            print("kubectl stderr:", e.stderr, file=sys.stderr)
+        sys.exit(1)
+
+def create_metallb_manifests(context: str, iprange: str) -> None:
+    print("Creating MetalLB pool and L2Advertisement")
+    metallb_manifests = f"""
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  namespace: metallb-system
+  name: kube-services
+spec:
+  addresses:
+  - {iprange}
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: kube-services
+  namespace: metallb-system
+spec:
+  ipAddressPools:
+  - kube-services
+"""
+    run(
+        f"echo '{metallb_manifests}' | kubectl "
+        f"--context {context} apply --server-side -f -"
+    )
 
 def deploy_istio_sail(context: str) -> None:
     istio_version = get_istio_version()
@@ -105,14 +204,17 @@ spec:
     )
 
 
-def create_gateway(context: str) -> None:
+def create_gateway(context: str, loadbalancer: bool) -> None:
     run(
         f"kubectl --context {context} "
         f" create namespace {default_namespace}", check=False
     )
 
     print("Creating Gateway for Istio")
-    run(f"kubectl --context {context} -n {default_namespace} apply -f config/samples/gateway.yaml")
+    if loadbalancer:
+        run(f"kubectl --context {context} -n {default_namespace} apply -f config/samples/gateway.yaml")
+    else:
+        run(f"kubectl annotate -f config/samples/gateway.yaml networking.istio.io/service-type=ClusterIP --local -o yaml |kubectl --context {context} -n {default_namespace} apply -f -")
 
     run(
         f"kubectl --context {context} -n {default_namespace} wait "
@@ -188,6 +290,30 @@ def deploy_coraza_operator(context: str) -> None:
         "deployment/coraza-controller-manager --timeout=300s"
     )
 
+def detect_docker() -> bool:
+    """Detect if Docker is available (as opposed to Podman)."""
+    print("detecting if Docker is available, otherwise assuming this is a Podman cluster")
+    result = run("docker version -f json", check=False, capture_output=True)
+    if result.returncode != 0:
+        # Docker not available, check for podman
+        print("Docker not found, checking for podman")
+        podman_result = run("podman version", check=False, capture_output=True)
+        if podman_result.returncode != 0:
+            print("ERROR: Neither docker nor podman is available", file=sys.stderr)
+            print("Please install either docker or podman to continue", file=sys.stderr)
+            sys.exit(1)
+        # Podman is available
+        return False
+    try:
+        # result.stdout is str because capture_output=True uses text=True
+        client_decoded = json.loads(result.stdout)
+        platform = client_decoded.get("Client", {}).get("Platform", {}).get("Name", '')
+        if "Docker Engine" in platform:
+            return True
+        return False
+    except (json.JSONDecodeError, KeyError, AttributeError):
+        return False
+
 
 def delete_cluster(name: str) -> None:
     print(f"Deleting kind cluster: {name}")
@@ -195,6 +321,7 @@ def delete_cluster(name: str) -> None:
 
 
 def setup_cluster(name: str) -> None:
+    docker_available = detect_docker()
     build_images()
     create_cluster(name)
     load_images(name)
@@ -202,10 +329,16 @@ def setup_cluster(name: str) -> None:
     context = get_kind_context(name)
 
     deploy_gateway_api_crds(context)
+    metallb_enabled = False
+    if docker_available:
+        if deploy_metallb(context):
+            metallb_ip_range = get_kind_network_range()
+            create_metallb_manifests(context, metallb_ip_range)
+            metallb_enabled = True
     deploy_istio_sail(context)
     create_istio_control_plane(context)
     create_gateway_class(context)
-    create_gateway(context)
+    create_gateway(context, metallb_enabled)
     deploy_coraza_operator(context)
 
     print("Cluster setup complete")
