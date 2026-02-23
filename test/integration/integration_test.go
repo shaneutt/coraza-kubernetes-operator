@@ -144,7 +144,7 @@ func TestIntegration(t *testing.T) {
 	rules, found, err := unstructured.NestedSlice(ruleSetObj.Object, "spec", "rules")
 	require.NoError(t, err)
 	require.True(t, found)
-	rules = append(rules, map[string]interface{}{
+	rules = append(rules, map[string]any{
 		"name": "no-sinister-monkeys",
 	})
 	err = unstructured.SetNestedSlice(ruleSetObj.Object, rules, "spec", "rules")

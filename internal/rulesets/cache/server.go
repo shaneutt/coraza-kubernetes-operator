@@ -152,8 +152,7 @@ func (s *ruleSetCacheServer) handleRules(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if strings.HasSuffix(path, "/latest") {
-		cacheKey := strings.TrimSuffix(path, "/latest")
+	if cacheKey, ok := strings.CutSuffix(path, "/latest"); ok {
 		s.handleLatest(w, r, cacheKey)
 		return
 	}

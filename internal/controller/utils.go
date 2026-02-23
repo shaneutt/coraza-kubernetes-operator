@@ -38,20 +38,20 @@ import (
 const debugLevel = 1
 
 // logInfo logs an info-level message with consistent structured context.
-func logInfo(log logr.Logger, req ctrl.Request, kind, msg string, keysAndValues ...interface{}) {
-	args := append([]interface{}{"namespace", req.Namespace, "name", req.Name}, keysAndValues...)
+func logInfo(log logr.Logger, req ctrl.Request, kind, msg string, keysAndValues ...any) {
+	args := append([]any{"namespace", req.Namespace, "name", req.Name}, keysAndValues...)
 	log.Info(fmt.Sprintf("%s: %s", kind, msg), args...)
 }
 
 // logDebug logs a debug-level message with consistent structured context.
-func logDebug(log logr.Logger, req ctrl.Request, kind, msg string, keysAndValues ...interface{}) {
-	args := append([]interface{}{"namespace", req.Namespace, "name", req.Name}, keysAndValues...)
+func logDebug(log logr.Logger, req ctrl.Request, kind, msg string, keysAndValues ...any) {
+	args := append([]any{"namespace", req.Namespace, "name", req.Name}, keysAndValues...)
 	log.V(debugLevel).Info(fmt.Sprintf("%s: %s", kind, msg), args...)
 }
 
 // logError logs an error-level message with consistent structured context.
-func logError(log logr.Logger, req ctrl.Request, kind string, err error, msg string, keysAndValues ...interface{}) {
-	args := append([]interface{}{"namespace", req.Namespace, "name", req.Name}, keysAndValues...)
+func logError(log logr.Logger, req ctrl.Request, kind string, err error, msg string, keysAndValues ...any) {
+	args := append([]any{"namespace", req.Namespace, "name", req.Name}, keysAndValues...)
 	log.Error(err, fmt.Sprintf("%s: %s", kind, msg), args...)
 }
 
