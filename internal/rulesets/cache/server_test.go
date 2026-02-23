@@ -168,8 +168,7 @@ func TestServer_GCByAge(t *testing.T) {
 	server := NewServer(cache, testServerAddr, logger, gc)
 
 	t.Log("Starting the GC")
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	go server.rungc(ctx)
 
 	t.Log("Adding entries across multiple instances")
@@ -237,8 +236,7 @@ func TestServer_GCBySize(t *testing.T) {
 	assert.Equal(t, 6, initialCount, "Should have 6 total entries (2+2+1+1)")
 
 	t.Log("Starting GC")
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	go server.rungc(ctx)
 
 	t.Log("Waiting for a coupleGC cycles to complete")
@@ -282,8 +280,7 @@ func TestServer_GCEmptyCache(t *testing.T) {
 	server := NewServer(cache, ":0", logger, gc)
 
 	t.Log("Starting GC on empty cache")
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	go server.rungc(ctx)
 
 	t.Log("Waiting for multiple GC cycles")

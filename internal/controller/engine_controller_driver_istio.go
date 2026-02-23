@@ -93,7 +93,7 @@ func (r *EngineReconciler) provisionIstioEngineWithWasm(ctx context.Context, log
 func (r *EngineReconciler) buildWasmPlugin(engine *wafv1alpha1.Engine) *unstructured.Unstructured {
 	rulesetKey := fmt.Sprintf("%s/%s", engine.Namespace, engine.Spec.RuleSet.Name)
 
-	pluginConfig := map[string]interface{}{
+	pluginConfig := map[string]any{
 		"cache_server_instance": rulesetKey,
 		"cache_server_cluster":  r.ruleSetCacheServerCluster,
 	}
@@ -103,17 +103,17 @@ func (r *EngineReconciler) buildWasmPlugin(engine *wafv1alpha1.Engine) *unstruct
 	}
 
 	wasmPlugin := &unstructured.Unstructured{
-		Object: map[string]interface{}{
+		Object: map[string]any{
 			"apiVersion": "extensions.istio.io/v1alpha1",
 			"kind":       "WasmPlugin",
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"name":      fmt.Sprintf("%s%s", WasmPluginNamePrefix, engine.Name),
 				"namespace": engine.Namespace,
 			},
-			"spec": map[string]interface{}{
+			"spec": map[string]any{
 				"url":          engine.Spec.Driver.Istio.Wasm.Image,
 				"pluginConfig": pluginConfig,
-				"selector": map[string]interface{}{
+				"selector": map[string]any{
 					"matchLabels": engine.Spec.Driver.Istio.Wasm.WorkloadSelector.MatchLabels,
 				},
 			},

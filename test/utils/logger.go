@@ -40,11 +40,11 @@ func NewTestRecorder() record.EventRecorder {
 func (r *testRecorder) Event(object runtime.Object, eventtype, reason, message string) {}
 
 // Eventf records an event with formatting.
-func (r *testRecorder) Eventf(object runtime.Object, eventtype, reason, messageFmt string, args ...interface{}) {
+func (r *testRecorder) Eventf(object runtime.Object, eventtype, reason, messageFmt string, args ...any) {
 }
 
 // AnnotatedEventf records an annotated event with formatting.
-func (r *testRecorder) AnnotatedEventf(object runtime.Object, annotations map[string]string, eventtype, reason, messageFmt string, args ...interface{}) {
+func (r *testRecorder) AnnotatedEventf(object runtime.Object, annotations map[string]string, eventtype, reason, messageFmt string, args ...any) {
 }
 
 // -----------------------------------------------------------------------------
@@ -73,17 +73,17 @@ func (l *testLogger) Enabled(level int) bool {
 }
 
 // Info logs informational messages to the test output
-func (l *testLogger) Info(level int, msg string, keysAndValues ...interface{}) {
+func (l *testLogger) Info(level int, msg string, keysAndValues ...any) {
 	l.t.Logf("[INFO] %s %v", msg, keysAndValues)
 }
 
 // Error logs error messages to the test output
-func (l *testLogger) Error(err error, msg string, keysAndValues ...interface{}) {
+func (l *testLogger) Error(err error, msg string, keysAndValues ...any) {
 	l.t.Logf("[ERROR] %s: %v %v", msg, err, keysAndValues)
 }
 
 // WithValues returns the logger with additional key-value pairs
-func (l *testLogger) WithValues(keysAndValues ...interface{}) logr.LogSink {
+func (l *testLogger) WithValues(keysAndValues ...any) logr.LogSink {
 	return l
 }
 

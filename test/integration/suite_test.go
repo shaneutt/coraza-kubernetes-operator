@@ -184,7 +184,7 @@ func runPortForward(labelSelector string) {
 func waitForGatewayReady() {
 	fmt.Println("Waiting for gateway to be ready...")
 	maxRetries := 30
-	for i := 0; i < maxRetries; i++ {
+	for range maxRetries {
 		resp, err := httpc.Get(fmt.Sprintf("http://localhost:%s", gatewayLocalPort))
 		if err == nil {
 			defer func() {

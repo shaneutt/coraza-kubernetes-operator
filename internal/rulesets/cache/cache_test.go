@@ -140,7 +140,7 @@ func TestRuleSetCache_Pruning(t *testing.T) {
 				c.Put("instance1", "v2")
 				time.Sleep(10 * time.Millisecond)
 				c.Put("instance1", "v3")
-				for i := 0; i < 3; i++ {
+				for i := range 3 {
 					c.SetEntryTimestamp("instance1", i, time.Now().Add(-48*time.Hour))
 				}
 			},
