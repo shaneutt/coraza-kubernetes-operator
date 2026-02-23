@@ -177,6 +177,7 @@ test.integration:
 # -------------------------------------------------------------------------------
 # Coraza Coreruleset
 # -------------------------------------------------------------------------------
+
 CORERULESET_VERSION ?= v4.23.0
 LOCALRULES ?= $(shell pwd)/tmp/rules
 CORERULESET_DIR ?= $(shell pwd)/tmp/coreruleset
@@ -204,8 +205,8 @@ coraza.generaterules: coraza.coreruleset.download $(LOCALRULES)
 
 .PHONY: coraza.coreruleset
 coraza.coreruleset: coraza.generaterules
-	kubectl delete -f $(LOCALRULES)/*.yaml
-	kubectl apply --server-side -f $(LOCALRULES)/*.yaml
+	kubectl delete --ignore-not-found -f $(LOCALRULES)/rules.yaml
+	kubectl apply --server-side -f $(LOCALRULES)/rules.yaml
 
 
 # -------------------------------------------------------------------------------

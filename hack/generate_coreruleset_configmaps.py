@@ -19,6 +19,7 @@ from typing import List, Tuple, Set
 
 
 # Base rules configmap content (from config/samples/ruleset.yaml)
+# this Base rules also contains the extra SecAction for Coreruleset deployment
 BASE_RULES_CONFIGMAP = """apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -104,7 +105,7 @@ def split_into_rules(content: str) -> List[str]:
                 blocks.append('\n'.join(current_block))
                 current_block = []
         # Check if this starts a Sec* directive (SecRule, SecAction, SecMarker, etc.)
-        elif stripped.startswith('Sec'):
+        elif not stripped.startswith('#') and re.match(r'^(SecRule|SecAction|SecMarker)\b', stripped):
             current_block = [line]
             if stripped.endswith('\\'):
                 in_multiline = True
@@ -151,7 +152,7 @@ def process_file_content(file_path: Path, ignore_rule_ids: Set[str], ignore_pmfr
     for block in blocks:
         stripped_block = block.strip()
         # Check if this block is a Sec* directive (SecRule, SecAction, etc.)
-        if stripped_block.startswith('Sec'):
+        if stripped_block and not stripped_block.startswith('#') and stripped_block.startswith('Sec'):
             # Check for @pmFromFile (only relevant for SecRule) if ignore flag is set
             if ignore_pmfromfile and stripped_block.startswith('SecRule') and '@pmFromFile' in block:
                 rule_id = extract_rule_id(block)
@@ -172,9 +173,37 @@ def process_file_content(file_path: Path, ignore_rule_ids: Set[str], ignore_pmfr
 
 
 def generate_configmap_name(file_path: Path) -> str:
-    """Generate ConfigMap name from filename."""
+    """
+    Generate ConfigMap name from filename following Kubernetes DNS subdomain naming rules.
+
+    According to RFC 1123, the name must:
+    - Consist of lowercase alphanumeric characters, '-' or '.'
+    - Start with an alphanumeric character
+    - End with an alphanumeric character
+    - Be at most 253 characters long
+    """
     # Remove .conf extension and convert to lowercase
     name = file_path.stem.lower()
+
+    # Replace underscores with hyphens (underscores are not allowed)
+    name = name.replace('_', '-')
+
+    # Remove any characters that are not lowercase alphanumeric, hyphen, or period
+    name = re.sub(r'[^a-z0-9.-]', '', name)
+
+    # Ensure it starts with an alphanumeric character
+    name = re.sub(r'^[^a-z0-9]+', '', name)
+
+    # Ensure it ends with an alphanumeric character
+    name = re.sub(r'[^a-z0-9]+$', '', name)
+
+    # Validate the resulting name
+    if not name:
+        raise ValueError(f"Cannot generate valid ConfigMap name from file: {file_path.name}")
+
+    if len(name) > 253:
+        raise ValueError(f"Generated ConfigMap name exceeds 253 characters: {name}")
+
     return name
 
 
@@ -205,7 +234,7 @@ def generate_configmap(file_path: Path, ignore_rule_ids: Set[str], ignore_pmfrom
         return "", "", "No SecRule or SecAction directives found"
 
     # Indent the rules content for YAML
-    indented_rules = "\n".join(f"    {line}" if line else "" for line in processed_content.splitlines())
+    indented_rules = "\n".join(f"    {line}" if line.strip() else "" for line in processed_content.splitlines())
 
     configmap = f"""apiVersion: v1
 kind: ConfigMap
