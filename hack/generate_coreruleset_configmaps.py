@@ -254,14 +254,10 @@ def generate_ruleset(configmap_names: List[str], include_base_rules: bool = True
 
     # Add base-rules as the first entry if requested
     if include_base_rules:
-        rules_entries.append("""  - apiVersion: v1
-    kind: ConfigMap
-    name: base-rules""")
+        rules_entries.append("    - name: base-rules")
 
     for name in configmap_names:
-        rules_entries.append(f"""  - apiVersion: v1
-    kind: ConfigMap
-    name: {name}""")
+        rules_entries.append(f"    - name: {name}")
 
     rules_section = '\n'.join(rules_entries)
 
