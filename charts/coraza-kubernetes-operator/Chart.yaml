@@ -1,0 +1,19 @@
+apiVersion: v2
+name: coraza-kubernetes-operator
+description: Web Application Firewall (WAF) support for Kubernetes Gateways
+type: application
+version: 0.1.0
+appVersion: "0.2.0"
+home: https://github.com/networking-incubator/coraza-kubernetes-operator
+sources:
+  - https://github.com/networking-incubator/coraza-kubernetes-operator
+maintainers:
+  - name: networking-incubator
+    url: https://github.com/networking-incubator
+keywords:
+  - coraza
+  - waf
+  - kubernetes
+  - gateway
+  - istio
+  - security

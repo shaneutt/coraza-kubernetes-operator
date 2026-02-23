@@ -44,6 +44,9 @@ dist/*
 !.github/*.md
 !.github/**/*.md
 
+# helm chart
+!charts/**/NOTES.txt
+
 # GitHub Copilot
 !.github/copilot-instructions.md
 !.github/instructions/*.instructions.md
