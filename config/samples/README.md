@@ -33,28 +33,34 @@ Port-forward to the gateway:
 kubectl port-forward svc/coraza-gateway-istio 8080:80
 ```
 
-Normal request (should return "hello from echo"):
+Normal request (you should see a JSON output consisting of HTTP headers):
 
 ```bash
 curl http://localhost:8080/
 ```
 
-SQLi attempt (should be blocked by rule 1001):
+Evil monkey (should be blocked by rule 3001, returns 403 Forbidden):
+
+```bash
+curl -I "http://localhost:8080/?q=evilmonkey"
+```
+
+SQLi attempt (works but get logged by rule 1001):
 
 ```bash
 curl "http://localhost:8080/?q=select+*+from+users"
 ```
 
-XSS attempt (should be blocked by rule 2001):
+XSS attempt (works but get logged by rule 2001):
 
 ```bash
 curl "http://localhost:8080/?q=<script>alert(1)</script>"
 ```
 
-Evil monkey (should be blocked by rule 3001):
+For all attempts above, you can inspect the gateway (Envoy) logs to see what gets logged by Coraza:
 
 ```bash
-curl "http://localhost:8080/?q=evilmonkey"
+kubectl logs deploy/coraza-gateway-istio
 ```
 
 ## Cleanup
