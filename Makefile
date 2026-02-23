@@ -173,6 +173,42 @@ test.integration:
 	go clean -testcache
 	KIND_CLUSTER_NAME=${KIND_CLUSTER_NAME} ISTIO_VERSION=${ISTIO_VERSION} go test -tags=integration ./test/integration/... -v
 
+
+# -------------------------------------------------------------------------------
+# Coraza Coreruleset
+# -------------------------------------------------------------------------------
+
+CORERULESET_VERSION ?= v4.23.0
+LOCALRULES ?= $(shell pwd)/tmp/rules
+CORERULESET_DIR ?= $(shell pwd)/tmp/coreruleset
+TMP_DOWNLOAD_DIR ?= $(shell pwd)/tmp/download
+
+$(LOCALRULES):
+	mkdir -p "$(LOCALRULES)"
+
+.PHONY: coraza.coreruleset.download
+coraza.coreruleset.download:
+	@echo "Downloading CoreRuleSet $(CORERULESET_VERSION)..."
+	@rm -rf $(CORERULESET_DIR) $(TMP_DOWNLOAD_DIR)
+	@mkdir -p $(TMP_DOWNLOAD_DIR)
+	@curl -sSL https://github.com/coreruleset/coreruleset/archive/refs/tags/$(CORERULESET_VERSION).tar.gz | tar xz -C $(TMP_DOWNLOAD_DIR)
+	@mkdir -p $(CORERULESET_DIR)
+	@mv $(TMP_DOWNLOAD_DIR)/coreruleset-$(CORERULESET_VERSION:v%=%)/rules $(CORERULESET_DIR)/
+	@mkdir -p $(CORERULESET_DIR)/tests
+	@mv $(TMP_DOWNLOAD_DIR)/coreruleset-$(CORERULESET_VERSION:v%=%)/tests/regression/tests $(CORERULESET_DIR)/tests/
+	@rm -rf $(TMP_DOWNLOAD_DIR)
+	@echo "CoreRuleSet extracted to $(CORERULESET_DIR)"
+
+.PHONY: coraza.generaterules
+coraza.generaterules: coraza.coreruleset.download $(LOCALRULES)
+	python3 hack/generate_coreruleset_configmaps.py --rules-dir $(CORERULESET_DIR)/rules/ --ignore-pmFromFile > $(LOCALRULES)/rules.yaml
+
+.PHONY: coraza.coreruleset
+coraza.coreruleset: coraza.generaterules
+	kubectl delete --ignore-not-found -f $(LOCALRULES)/rules.yaml
+	kubectl apply --server-side -f $(LOCALRULES)/rules.yaml
+
+
 # -------------------------------------------------------------------------------
 # Helm
 # -------------------------------------------------------------------------------
