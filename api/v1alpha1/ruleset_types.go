@@ -17,9 +17,17 @@ limitations under the License.
 package v1alpha1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+// RuleSourceReference is a reference to a ConfigMap that contains WAF rules.
+type RuleSourceReference struct {
+	// Name is the name of the ConfigMap in the same namespace as the RuleSet.
+	//
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+}
 
 // -----------------------------------------------------------------------------
 // RuleSet - Schema Registration
@@ -81,17 +89,16 @@ type RuleSetList struct {
 
 // RuleSetSpec defines the desired state of RuleSet.
 type RuleSetSpec struct {
-	// Rules is an ordered list of references to other objects that contain the
+	// Rules is an ordered list of references to ConfigMaps that contain the
 	// firewall rules to be compiled into a complete set.
 	//
-	// Currently, only core/v1 ConfigMap kind is supported for rule sources.
+	// Each entry refers to a ConfigMap by name in the same namespace as
+	// the RuleSet. The ConfigMap must contain a "rules" key.
 	//
 	// +required
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=2048
-	// +kubebuilder:validation:XValidation:rule="self.all(r, r.kind == 'ConfigMap' && r.apiVersion == 'v1')",message="only core/v1 ConfigMap kind is supported for rule sources"
-	// +kubebuilder:validation:XValidation:rule="self.all(r, !has(r.namespace) || r.namespace == '')",message="cross-namespace references are not currently supported"
-	Rules []corev1.ObjectReference `json:"rules"`
+	Rules []RuleSourceReference `json:"rules"`
 }
 
 // -----------------------------------------------------------------------------

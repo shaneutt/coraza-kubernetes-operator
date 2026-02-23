@@ -45,7 +45,7 @@ func (r *RuleSetReconciler) findRuleSetsForConfigMap(ctx context.Context, config
 	var requests []reconcile.Request
 	for _, ruleSet := range ruleSetList.Items {
 		for _, rule := range ruleSet.Spec.Rules {
-			if rule.Kind == "ConfigMap" && rule.Name == configMap.GetName() {
+			if rule.Name == configMap.GetName() {
 				req := ctrl.Request{
 					NamespacedName: types.NamespacedName{
 						Name:      ruleSet.Name,

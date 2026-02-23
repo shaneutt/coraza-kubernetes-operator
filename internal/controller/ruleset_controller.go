@@ -106,22 +106,7 @@ func (r *RuleSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	logDebug(log, req, "RuleSet", "Aggregating rules from sources", "ruleCount", len(ruleset.Spec.Rules))
 	var aggregatedRules strings.Builder
 	for i, rule := range ruleset.Spec.Rules {
-		logDebug(log, req, "RuleSet", "Processing rule source", "index", i, "ruleName", rule.Name, "kind", rule.Kind)
-		if rule.Kind != "ConfigMap" {
-			err := fmt.Errorf("unsupported rule kind: %s", rule.Kind)
-			logError(log, req, "RuleSet", err, "Invalid rule source kind")
-
-			patch := client.MergeFrom(ruleset.DeepCopy())
-			msg := fmt.Sprintf("Rule source %s has unsupported kind: %s (only ConfigMap is supported)", rule.Name, rule.Kind)
-			r.Recorder.Event(&ruleset, "Warning", "InvalidConfiguration", msg)
-			setStatusConditionDegraded(log, req, "RuleSet", &ruleset.Status.Conditions, ruleset.Generation, "InvalidConfiguration", msg)
-			if updateErr := r.Status().Patch(ctx, &ruleset, patch); updateErr != nil {
-				logError(log, req, "RuleSet", updateErr, "Failed to patch status")
-			}
-
-			return ctrl.Result{}, err
-		}
-
+		logDebug(log, req, "RuleSet", "Processing rule source", "index", i, "configMapName", rule.Name)
 		logDebug(log, req, "RuleSet", "Fetching ConfigMap", "configMapName", rule.Name, "configMapNamespace", ruleset.Namespace)
 		var cm corev1.ConfigMap
 		if err := r.Get(ctx, types.NamespacedName{
