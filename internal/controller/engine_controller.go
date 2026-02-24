@@ -144,7 +144,7 @@ func (r *EngineReconciler) handleInvalidDriverConfiguration(ctx context.Context,
 	err := fmt.Errorf("invalid driver configuration: only Istio driver with Wasm mode is currently supported")
 	logError(log, req, "Engine", err, "Invalid driver configuration")
 
-	r.Recorder.Eventf(engine, nil, "Warning", "InvalidConfiguration", "Reconcile", "%s", err.Error())
+	r.Recorder.Eventf(engine, nil, "Warning", "InvalidConfiguration", "Reconcile", err.Error())
 	patch := client.MergeFrom(engine.DeepCopy())
 	setStatusConditionDegraded(log, req, "Engine", &engine.Status.Conditions, engine.Generation, "InvalidConfiguration", err.Error())
 	if updateErr := r.Status().Patch(ctx, engine, patch); updateErr != nil {
