@@ -27,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -53,7 +53,7 @@ import (
 // EngineReconciler reconciles an Engine object
 type EngineReconciler struct {
 	Scheme   *runtime.Scheme
-	Recorder record.EventRecorder
+	Recorder events.EventRecorder
 
 	client.Client
 	ruleSetCacheServerCluster string
@@ -144,7 +144,7 @@ func (r *EngineReconciler) handleInvalidDriverConfiguration(ctx context.Context,
 	err := fmt.Errorf("invalid driver configuration: only Istio driver with Wasm mode is currently supported")
 	logError(log, req, "Engine", err, "Invalid driver configuration")
 
-	r.Recorder.Event(engine, "Warning", "InvalidConfiguration", err.Error())
+	r.Recorder.Eventf(engine, nil, "Warning", "InvalidConfiguration", "Reconcile", "%s", err.Error())
 	patch := client.MergeFrom(engine.DeepCopy())
 	setStatusConditionDegraded(log, req, "Engine", &engine.Status.Conditions, engine.Generation, "InvalidConfiguration", err.Error())
 	if updateErr := r.Status().Patch(ctx, engine, patch); updateErr != nil {

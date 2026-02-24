@@ -22,7 +22,8 @@ import (
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
+	"k8s.io/klog/v2"
 )
 
 // -----------------------------------------------------------------------------
@@ -32,19 +33,17 @@ import (
 type testRecorder struct{}
 
 // NewTestRecorder creates a no-op event recorder for testing
-func NewTestRecorder() record.EventRecorder {
+func NewTestRecorder() events.EventRecorder {
 	return &testRecorder{}
 }
 
-// Event records an event.
-func (r *testRecorder) Event(object runtime.Object, eventtype, reason, message string) {}
-
-// Eventf records an event with formatting.
-func (r *testRecorder) Eventf(object runtime.Object, eventtype, reason, messageFmt string, args ...any) {
+// Eventf records an event.
+func (r *testRecorder) Eventf(regarding runtime.Object, related runtime.Object, eventtype, reason, action, note string, args ...any) {
 }
 
-// AnnotatedEventf records an annotated event with formatting.
-func (r *testRecorder) AnnotatedEventf(object runtime.Object, annotations map[string]string, eventtype, reason, messageFmt string, args ...any) {
+// WithLogger returns the recorder with a logger.
+func (r *testRecorder) WithLogger(logger klog.Logger) events.EventRecorderLogger {
+	return r
 }
 
 // -----------------------------------------------------------------------------

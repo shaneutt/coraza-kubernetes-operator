@@ -49,7 +49,7 @@ func SetupControllers(mgr ctrl.Manager, rulesetCache *cache.RuleSetCache, envoyC
 	if err := (&RuleSetReconciler{
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorderFor("ruleset-controller"),
+		Recorder: mgr.GetEventRecorder("ruleset-controller"),
 		Cache:    rulesetCache,
 	}).SetupWithManager(mgr); err != nil {
 		return fmt.Errorf("unable to create controller RuleSet: %w", err)
@@ -58,7 +58,7 @@ func SetupControllers(mgr ctrl.Manager, rulesetCache *cache.RuleSetCache, envoyC
 	if err := (&EngineReconciler{
 		Client:                    mgr.GetClient(),
 		Scheme:                    mgr.GetScheme(),
-		Recorder:                  mgr.GetEventRecorderFor("engine-controller"),
+		Recorder:                  mgr.GetEventRecorder("engine-controller"),
 		ruleSetCacheServerCluster: envoyClusterName,
 	}).SetupWithManager(mgr); err != nil {
 		return fmt.Errorf("unable to create controller Engine: %w", err)

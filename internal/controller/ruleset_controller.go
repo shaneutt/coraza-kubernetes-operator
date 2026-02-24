@@ -27,7 +27,7 @@ import (
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -57,7 +57,7 @@ import (
 type RuleSetReconciler struct {
 	client.Client
 	Scheme   *runtime.Scheme
-	Recorder record.EventRecorder
+	Recorder events.EventRecorder
 	Cache    *cache.RuleSetCache
 }
 
@@ -117,7 +117,7 @@ func (r *RuleSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 				logInfo(log, req, "RuleSet", "ConfigMap not found", "configMapName", rule.Name)
 				patch := client.MergeFrom(ruleset.DeepCopy())
 				msg := fmt.Sprintf("Referenced ConfigMap %s does not exist", rule.Name)
-				r.Recorder.Event(&ruleset, "Warning", "ConfigMapNotFound", msg)
+				r.Recorder.Eventf(&ruleset, nil, "Warning", "ConfigMapNotFound", "Reconcile", "%s", msg)
 				setStatusConditionDegraded(log, req, "RuleSet", &ruleset.Status.Conditions, ruleset.Generation, "ConfigMapNotFound", msg)
 				if updateErr := r.Status().Patch(ctx, &ruleset, patch); updateErr != nil {
 					logError(log, req, "RuleSet", updateErr, "Failed to patch status")
@@ -129,7 +129,7 @@ func (r *RuleSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 			patch := client.MergeFrom(ruleset.DeepCopy())
 			msg := fmt.Sprintf("Failed to access ConfigMap %s: %v", rule.Name, err)
-			r.Recorder.Event(&ruleset, "Warning", "ConfigMapAccessError", msg)
+			r.Recorder.Eventf(&ruleset, nil, "Warning", "ConfigMapAccessError", "Reconcile", "%s", msg)
 			setStatusConditionDegraded(log, req, "RuleSet", &ruleset.Status.Conditions, ruleset.Generation, "ConfigMapAccessError", msg)
 			if updateErr := r.Status().Patch(ctx, &ruleset, patch); updateErr != nil {
 				logError(log, req, "RuleSet", updateErr, "Failed to patch status")
@@ -145,7 +145,7 @@ func (r *RuleSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 			patch := client.MergeFrom(ruleset.DeepCopy())
 			msg := fmt.Sprintf("ConfigMap %s is missing required 'rules' key", rule.Name)
-			r.Recorder.Event(&ruleset, "Warning", "InvalidConfigMap", msg)
+			r.Recorder.Eventf(&ruleset, nil, "Warning", "InvalidConfigMap", "Reconcile", "%s", msg)
 			setStatusConditionDegraded(log, req, "RuleSet", &ruleset.Status.Conditions, ruleset.Generation, "InvalidConfigMap", msg)
 			if updateErr := r.Status().Patch(ctx, &ruleset, patch); updateErr != nil {
 				logError(log, req, "RuleSet", updateErr, "Failed to patch status")
@@ -167,7 +167,7 @@ func (r *RuleSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	patch := client.MergeFrom(ruleset.DeepCopy())
 	msg := fmt.Sprintf("Successfully cached rules for %s/%s", ruleset.Namespace, ruleset.Name)
-	r.Recorder.Event(&ruleset, "Normal", "RulesCached", msg)
+	r.Recorder.Eventf(&ruleset, nil, "Normal", "RulesCached", "Reconcile", "%s", msg)
 	setStatusReady(log, req, "RuleSet", &ruleset.Status.Conditions, ruleset.Generation, "RulesCached", msg)
 	if err := r.Status().Patch(ctx, &ruleset, patch); err != nil {
 		logError(log, req, "RuleSet", err, "Failed to patch status")

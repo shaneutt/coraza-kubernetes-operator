@@ -62,7 +62,7 @@ func (r *EngineReconciler) provisionIstioEngineWithWasm(ctx context.Context, log
 	logDebug(log, req, "Engine", "Applying WasmPlugin", "wasmPluginName", wasmPlugin.GetName())
 	if err := serverSideApply(ctx, r.Client, wasmPlugin); err != nil {
 		logError(log, req, "Engine", err, "Failed to create or update WasmPlugin")
-		r.Recorder.Event(&engine, "Warning", "ProvisioningFailed", fmt.Sprintf("Failed to create WasmPlugin: %v", err))
+		r.Recorder.Eventf(&engine, nil, "Warning", "ProvisioningFailed", "Provision", "Failed to create WasmPlugin: %v", err)
 
 		patch := client.MergeFrom(engine.DeepCopy())
 		setStatusConditionDegraded(log, req, "Engine", &engine.Status.Conditions, engine.Generation, "ProvisioningFailed", fmt.Sprintf("Failed to create or update WasmPlugin: %v", err))
@@ -81,7 +81,7 @@ func (r *EngineReconciler) provisionIstioEngineWithWasm(ctx context.Context, log
 		logError(log, req, "Engine", err, "Failed to patch status")
 		return ctrl.Result{}, err
 	}
-	r.Recorder.Event(&engine, "Normal", "WasmPluginCreated", fmt.Sprintf("Created WasmPlugin %s/%s", wasmPlugin.GetNamespace(), wasmPlugin.GetName()))
+	r.Recorder.Eventf(&engine, nil, "Normal", "WasmPluginCreated", "Provision", "Created WasmPlugin %s/%s", wasmPlugin.GetNamespace(), wasmPlugin.GetName())
 
 	return ctrl.Result{}, nil
 }
