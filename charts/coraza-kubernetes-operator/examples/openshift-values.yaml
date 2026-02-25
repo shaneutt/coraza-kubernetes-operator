@@ -5,17 +5,5 @@ metrics:
   serviceMonitor:
     enabled: true
 
-resources:
-  limits:
-    cpu: 500m
-    memory: 256Mi
-  requests:
-    cpu: 10m
-    memory: 128Mi
 
-# Assuming Kubernetes 1.30+ is Present in this example
-resizePolicy:
-  - resourceName: cpu
-    restartPolicy: NotRequired
-  - resourceName: memory
-    restartPolicy: NotRequired
+

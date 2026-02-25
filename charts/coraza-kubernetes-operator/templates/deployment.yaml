@@ -47,7 +47,7 @@ spec:
             - --health-probe-bind-address=:8081
             {{- if .Values.metrics.enabled }}
             - --metrics-bind-address=:8082
-            - --metrics-secure={{ .Values.metrics.secure }}
+            - --metrics-secure=false
             {{- end }}
             - --envoy-cluster-name={{ printf "outbound|80||%s" (include "coraza-operator.serviceFQDN" .) }}
             - --cache-gc-interval=3s

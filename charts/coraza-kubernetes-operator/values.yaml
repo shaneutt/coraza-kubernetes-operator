@@ -3,21 +3,23 @@ image:
   tag: latest
   pullPolicy: IfNotPresent
 
+# NOTE: HA Presently Not Supported:
+#  https://github.com/networking-incubator/coraza-kubernetes-operator/issues/38
 replicas: 1
 
 resources:
   limits:
     cpu: 500m
-    memory: 128Mi
+    memory: 256Mi
   requests:
     cpu: 10m
-    memory: 64Mi
+    memory: 128Mi
 
 
 metrics:
   enabled: true
-  # TODO: re-enable secure metrics with auth once ServiceMonitor is configured for authn/authz.
-  secure: false
+  # TODO: Enable secure metrics with auth once ServiceMonitor is configured for authn/authz
+  # https://github.com/networking-incubator/coraza-kubernetes-operator/issues/88
   serviceMonitor:
     enabled: false
 
@@ -36,9 +38,8 @@ affinity: {}
 topologySpreadConstraints: []
 imagePullSecrets: []
 
-# Only works on 1.30.0 or Higher
-# resizePolicy:
-#   - resourceName: cpu
-#     restartPolicy: NotRequired
-#   - resourceName: memory
-#     restartPolicy: NotRequired
+resizePolicy:
+  - resourceName: cpu
+    restartPolicy: NotRequired
+  - resourceName: memory
+    restartPolicy: NotRequired

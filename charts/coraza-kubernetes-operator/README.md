@@ -2,6 +2,9 @@
 
 Deploys the [Coraza Kubernetes Operator](https://github.com/networking-incubator/coraza-kubernetes-operator) — declarative Web Application Firewall (WAF) support for Kubernetes Gateways.
 
+> **Requires Kubernetes &#x2265;1.33.0.** The chart and operator use `resizePolicy` and the `Chart.yaml` enforces this minimum.
+
+
 ## Installation
 
 ### Default (Kubernetes)
@@ -25,27 +28,6 @@ helm template coraza-kubernetes-operator \
 
 When `openshift.enabled=true`, `runAsUser`, `fsGroup`, and `fsGroupChangePolicy` are omitted from the pod security context so OpenShift can inject its own UID via SCCs.
 
-### High Availability (Multi-Zone)
-
-```bash
-helm template coraza-kubernetes-operator \
-  ./charts/coraza-kubernetes-operator \
-  --namespace coraza-system \
-  --include-crds \
-  -f charts/coraza-kubernetes-operator/examples/ha-values.yaml
-```
-
-### High Availability on OpenShift (Multi-Zone)
-
-```bash
-helm template coraza-kubernetes-operator \
-  ./charts/coraza-kubernetes-operator \
-  --namespace coraza-system \
-  --include-crds \
-  -f charts/coraza-kubernetes-operator/examples/openshift-values.yaml \
-  -f charts/coraza-kubernetes-operator/examples/ha-values.yaml
-```
-
 ## Values
 
 | Key                                                   | Type   | Default                                                   | Description                                                                                                 |
@@ -65,7 +47,8 @@ helm template coraza-kubernetes-operator \
 | `istio.revision`                                      | string | `coraza`                                                  | Istio control plane revision label                                                                          |
 | `openshift.enabled`                                   | bool   | `false`                                                   | Omit UID/fsGroup from pod security context for OpenShift SCC compatibility                                  |
 | `podSecurityStandard.version`                         | string | `latest`                                                  | Kubernetes version for Pod Security Standard labels (`latest` or `vX.YZ`)                                    |
+| **Kubernetes version**                                | string | `1.33+`                                                   | Minimum cluster version required by this chart (due to resizePolicy API) |
 | `nodeSelector`                                        | object | `{}`                                                      | Node selector constraints                                                                                   |
-| `tolerations`                                         | list   | `[]`                                                      | Tolerations                                                                                                 |
+| `tolerations`                         c                | list   | `[]`                                                      | Tolerations                                                                                                 |
 | `affinity`                                            | object | `{}`                                                      | Affinity rules                                                                                              |
 | `topologySpreadConstraints`                           | list   | `[]`                                                      | Topology spread constraints for pod scheduling                                                              |
