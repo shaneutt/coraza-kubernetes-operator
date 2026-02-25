@@ -2,17 +2,20 @@ openshift:
   enabled: true
 
 metrics:
-  # TODO: re-enable secure metrics with auth once ServiceMonitor is configured for authn/authz.
-  secure: false
   serviceMonitor:
     enabled: true
-    scheme: http
-
 
 resources:
   limits:
-    cpu: 30m
+    cpu: 500m
     memory: 256Mi
   requests:
     cpu: 10m
     memory: 128Mi
+
+# Assuming Kubernetes 1.30+ is Present in this example
+resizePolicy:
+  - resourceName: cpu
+    restartPolicy: NotRequired
+  - resourceName: memory
+    restartPolicy: NotRequired

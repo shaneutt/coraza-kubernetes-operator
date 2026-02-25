@@ -6,26 +6,15 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "coraza-operator.labels" . | nindent 4 }}
-    {{- with .Values.metrics.serviceMonitor.labels }}
-    {{- toYaml . | nindent 4 }}
-    {{- end }}
 spec:
   selector:
     matchLabels:
       {{- include "coraza-operator.selectorLabels" . | nindent 6 }}
   endpoints:
-    {{- $scheme := default (ternary "https" "http" .Values.metrics.secure) .Values.metrics.serviceMonitor.scheme }}
     - port: metrics
-      {{- if .Values.metrics.serviceMonitor.interval }}
-      interval: {{ .Values.metrics.serviceMonitor.interval }}
-      {{- end }}
-      {{- if .Values.metrics.serviceMonitor.scrapeTimeout }}
-      scrapeTimeout: {{ .Values.metrics.serviceMonitor.scrapeTimeout }}
-      {{- end }}
-      honorLabels: {{ .Values.metrics.serviceMonitor.honorLabels }}
-      scheme: {{ $scheme }}
-      {{- if eq $scheme "https" }}
+      interval: 30s
+      scrapeTimeout: 10s
+      scheme: https
       tlsConfig:
-        {{- toYaml .Values.metrics.serviceMonitor.tlsConfig | nindent 8 }}
-      {{- end }}
+        insecureSkipVerify: true
 {{- end }}

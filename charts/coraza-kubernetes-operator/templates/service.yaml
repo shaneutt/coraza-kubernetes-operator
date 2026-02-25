@@ -14,9 +14,9 @@ spec:
       targetPort: 18080
     {{- if .Values.metrics.enabled }}
     - name: metrics
-      port: {{ .Values.metrics.servicePort }}
+      port: 8082
       protocol: TCP
-      targetPort: {{ .Values.metrics.port }}
+      targetPort: 8082
     {{- end }}
   selector:
     {{- include "coraza-operator.selectorLabels" . | nindent 4 }}

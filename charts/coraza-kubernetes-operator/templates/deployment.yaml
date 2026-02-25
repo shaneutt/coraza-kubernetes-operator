@@ -45,8 +45,10 @@ spec:
           args:
             - --leader-elect=true
             - --health-probe-bind-address=:8081
-            - --metrics-bind-address={{ ternary (printf ":%d" (int .Values.metrics.port)) "0" .Values.metrics.enabled }}
+            {{- if .Values.metrics.enabled }}
+            - --metrics-bind-address=:8082
             - --metrics-secure={{ .Values.metrics.secure }}
+            {{- end }}
             - --envoy-cluster-name={{ printf "outbound|80||%s" (include "coraza-operator.serviceFQDN" .) }}
             - --cache-gc-interval=3s
           securityContext:
