@@ -58,6 +58,13 @@ rules:
   - apiGroups:
       - waf.k8s.coraza.io
     resources:
+      - engines/finalizers
+      - rulesets/finalizers
+    verbs:
+      - update
+  - apiGroups:
+      - waf.k8s.coraza.io
+    resources:
       - engines/status
       - rulesets/status
     verbs:

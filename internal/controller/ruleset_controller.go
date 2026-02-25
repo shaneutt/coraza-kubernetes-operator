@@ -46,6 +46,7 @@ import (
 // -----------------------------------------------------------------------------
 
 // +kubebuilder:rbac:groups=waf.k8s.coraza.io,resources=rulesets,verbs=get;list;watch;patch;update
+// +kubebuilder:rbac:groups=waf.k8s.coraza.io,resources=rulesets/finalizers,verbs=update
 // +kubebuilder:rbac:groups=waf.k8s.coraza.io,resources=rulesets/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
 
