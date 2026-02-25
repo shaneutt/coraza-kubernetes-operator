@@ -175,13 +175,15 @@ test.integration:
 
 
 # -------------------------------------------------------------------------------
-# Coraza Coreruleset
+# Coraza Coreruleset targets
 # -------------------------------------------------------------------------------
 
 CORERULESET_VERSION ?= v4.23.0
 LOCALRULES ?= $(shell pwd)/tmp/rules
 CORERULESET_DIR ?= $(shell pwd)/tmp/coreruleset
 TMP_DOWNLOAD_DIR ?= $(shell pwd)/tmp/download
+NAMESPACE ?= default
+CORERULESET_EXTRA_FLAGS ?= --ignore-pmFromFile
 
 $(LOCALRULES):
 	mkdir -p "$(LOCALRULES)"
@@ -201,12 +203,27 @@ coraza.coreruleset.download:
 
 .PHONY: coraza.generaterules
 coraza.generaterules: coraza.coreruleset.download $(LOCALRULES)
-	python3 hack/generate_coreruleset_configmaps.py --rules-dir $(CORERULESET_DIR)/rules/ --ignore-pmFromFile > $(LOCALRULES)/rules.yaml
+	python3 hack/generate_coreruleset_configmaps.py --rules-dir $(CORERULESET_DIR)/rules/ $(CORERULESET_EXTRA_FLAGS) > $(LOCALRULES)/rules.yaml
 
 .PHONY: coraza.coreruleset
 coraza.coreruleset: coraza.generaterules
-	kubectl delete --ignore-not-found -f $(LOCALRULES)/rules.yaml
-	kubectl apply --server-side -f $(LOCALRULES)/rules.yaml
+	kubectl delete -n $(NAMESPACE) --ignore-not-found -f $(LOCALRULES)/*.yaml
+	kubectl apply -n $(NAMESPACE) --server-side -f $(LOCALRULES)/*.yaml
+
+# TODO: Deploy a Gateway, set port-forward and log-forward and run ftw passing the right flags
+# -------------------------------------------------------------------------------
+# Coraza Coreruleset - FTW testing
+# -------------------------------------------------------------------------------
+
+FTW_NAMESPACE ?= ftw-test
+
+.PHONY: ftw.coreruleset
+ftw.coreruleset:
+	kubectl delete ns --ignore-not-found $(FTW_NAMESPACE)
+	kubectl create ns $(FTW_NAMESPACE)
+	kubectl apply -n $(FTW_NAMESPACE) -f config/samples/
+	$(MAKE) CORAZA_EXTRA_FLAGS="--include-test-rule --ignore-pmFromFile" NAMESPACE=$(FTW_NAMESPACE) coraza.coreruleset
+#go tool -modfile=$(shell pwd)/ftw/go.mod github.com/coreruleset/go-ftw/v2 run -d $(CORERULESET_DIR)/tests/tests --config $(shell pwd)/ftw/ftw.yml --read-timeout=10s  --show-failures-only
 
 
 # -------------------------------------------------------------------------------
