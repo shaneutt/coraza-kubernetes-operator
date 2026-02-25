@@ -6,7 +6,7 @@ metadata:
   labels:
     {{- include "coraza-operator.labels" . | nindent 4 }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.replicas }}
   selector:
     matchLabels:
       {{- include "coraza-operator.selectorLabels" . | nindent 6 }}
@@ -23,10 +23,19 @@ spec:
       {{- end }}
       securityContext:
         runAsNonRoot: true
+        {{- if not .Values.openshift.enabled }}
         runAsUser: 65532
         fsGroup: 65532
+        {{- end }}
+        fsGroupChangePolicy: OnRootMismatch
         seccompProfile:
           type: RuntimeDefault
+      automountServiceAccountToken: true
+      enableServiceLinks: false
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: manager
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -36,11 +45,17 @@ spec:
           args:
             - --leader-elect=true
             - --health-probe-bind-address=:8081
+            - --metrics-bind-address={{ ternary (printf ":%d" (int .Values.metrics.port)) "0" .Values.metrics.enabled }}
+            - --metrics-secure={{ .Values.metrics.secure }}
             - --envoy-cluster-name={{ printf "outbound|80||%s" (include "coraza-operator.serviceFQDN" .) }}
             - --cache-gc-interval=3s
           securityContext:
+            runAsNonRoot: true
+            privileged: false
             readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false
+            seccompProfile:
+              type: RuntimeDefault
             capabilities:
               drop:
                 - "ALL"
@@ -48,22 +63,35 @@ spec:
             httpGet:
               path: /healthz
               port: 8081
-            failureThreshold: 30
+            initialDelaySeconds: 0
+            timeoutSeconds: 1
             periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 30
           livenessProbe:
             httpGet:
               path: /healthz
               port: 8081
             initialDelaySeconds: 15
+            timeoutSeconds: 1
             periodSeconds: 20
+            successThreshold: 1
+            failureThreshold: 3
           readinessProbe:
             httpGet:
               path: /readyz
               port: 8081
             initialDelaySeconds: 5
+            timeoutSeconds: 1
             periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+          {{- with .Values.resizePolicy }}
+          resizePolicy:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
       serviceAccountName: {{ include "coraza-operator.serviceAccountName" . }}
       terminationGracePeriodSeconds: 10
       {{- with .Values.nodeSelector }}
