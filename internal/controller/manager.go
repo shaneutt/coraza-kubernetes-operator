@@ -29,7 +29,8 @@ import (
 // Global RBAC
 // -----------------------------------------------------------------------------
 
-// +kubebuilder:rbac:groups="events.k8s.io",resources=events,verbs=create;patch
+// +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
+// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups="coordination.k8s.io",resources=leases,verbs=get;list;watch;create;update;patch;delete
 
 // -----------------------------------------------------------------------------
