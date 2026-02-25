@@ -70,7 +70,7 @@ func (s *Scenario) ProxyToGateway(namespace, gatewayName string) *GatewayProxy {
 		}
 		defer func() {
 			_, _ = io.ReadAll(resp.Body)
-			resp.Body.Close()
+			_ = resp.Body.Close()
 		}()
 		return true
 	}, DefaultTimeout, time.Second,
@@ -100,8 +100,8 @@ func (g *GatewayProxy) Get(path string) *HTTPResult {
 	if err != nil {
 		return &HTTPResult{Err: err}
 	}
+	defer func() { _ = resp.Body.Close() }()
 	body, _ := io.ReadAll(resp.Body)
-	resp.Body.Close()
 	return &HTTPResult{
 		StatusCode: resp.StatusCode,
 		Headers:    resp.Header,
@@ -127,7 +127,7 @@ func (g *GatewayProxy) ExpectAllowed(path string) {
 		}
 		defer func() {
 			_, _ = io.ReadAll(resp.Body)
-			resp.Body.Close()
+			_ = resp.Body.Close()
 		}()
 		return resp.StatusCode != http.StatusForbidden
 	}, DefaultTimeout, DefaultInterval, "expected %s to not be blocked (not 403)", path)
@@ -143,7 +143,7 @@ func (g *GatewayProxy) ExpectStatus(path string, code int) {
 		}
 		defer func() {
 			_, _ = io.ReadAll(resp.Body)
-			resp.Body.Close()
+			_ = resp.Body.Close()
 		}()
 		return resp.StatusCode == code
 	}, DefaultTimeout, DefaultInterval, "expected %s to return %d", path, code)
