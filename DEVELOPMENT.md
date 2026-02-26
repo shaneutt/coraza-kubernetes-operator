@@ -74,7 +74,6 @@ automatic cleanup:
 ```go
 func TestExample(t *testing.T) {
     s := fw.NewScenario(t)
-    defer s.Cleanup()
 
     s.CreateNamespace("my-test")
     s.CreateConfigMap("my-test", "rules", `SecRuleEngine On

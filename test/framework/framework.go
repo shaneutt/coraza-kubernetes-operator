@@ -26,7 +26,6 @@ limitations under the License.
 //	fw, err := framework.New()
 //	// ... in a test function:
 //	s := fw.NewScenario(t)
-//	defer s.Cleanup()
 //	s.CreateNamespace("my-test")
 //	s.CreateConfigMap("my-test", "rules", rulesData)
 //	s.CreateRuleSet("my-test", "ruleset", refs)

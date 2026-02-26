@@ -77,9 +77,12 @@ func (f *Framework) NewScenario(t *testing.T) *Scenario {
 }
 
 // Cleanup runs all registered cleanup functions in reverse order.
+// It is idempotent: subsequent calls are no-ops.
 func (s *Scenario) Cleanup() {
-	for i := len(s.cleanups) - 1; i >= 0; i-- {
-		s.cleanups[i]()
+	cleanups := s.cleanups
+	s.cleanups = nil
+	for i := len(cleanups) - 1; i >= 0; i-- {
+		cleanups[i]()
 	}
 }
 
