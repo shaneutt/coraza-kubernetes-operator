@@ -225,6 +225,7 @@ ftw.environment: cluster.kind
 	kubectl delete ns --ignore-not-found $(FTW_NAMESPACE)
 	kubectl create ns $(FTW_NAMESPACE)
 	kubectl apply -n $(FTW_NAMESPACE) -f config/samples/
+	kubectl wait deploy -n $(FTW_NAMESPACE) -l gateway.networking.k8s.io/gateway-name=$(GATEWAY_NAME) --for=condition=Available
 
 .PHONY: ftw.coreruleset
 ftw.coreruleset:
@@ -232,8 +233,10 @@ ftw.coreruleset:
 
 .PHONY: ftw.run
 ftw.run:
+	# Give some time for loads to be properly loaded by the Gateway
+	sleep 10
 	$(KIND) get kubeconfig --name $(KIND_CLUSTER_NAME) > $(shell pwd)/tmp/kubeconfig
-	python ftw/run.py --namespace $(NAMESPACE) --gateway $(GATEWAY_NAME) --config-file $(shell pwd)/ftw/ftw.yml --rules-directory $(CORERULESET_DIR)/tests/tests --kubeconfig $(shell pwd)/tmp/kubeconfig --output-format $(FTW_OUTPUT_FORMAT)
+	python ftw/run.py --namespace $(FTW_NAMESPACE) --gateway $(GATEWAY_NAME) --config-file $(shell pwd)/ftw/ftw.yml --rules-directory $(CORERULESET_DIR)/tests/tests --kubeconfig $(shell pwd)/tmp/kubeconfig --output-format $(FTW_OUTPUT_FORMAT)
 
 .PHONY: ftw
 ftw: ftw.environment ftw.coreruleset ftw.run
