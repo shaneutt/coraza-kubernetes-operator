@@ -21,12 +21,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os/exec"
-	"sync"
 	"time"
 
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/portforward"
+	"k8s.io/client-go/transport/spdy"
 )
 
 // GatewayProxy manages a port-forward to a Gateway and provides HTTP
@@ -38,13 +38,10 @@ type GatewayProxy struct {
 	localPort string
 	baseURL   string
 	httpc     *http.Client
-
-	mu     sync.Mutex
-	cmd    *exec.Cmd
-	cancel context.CancelFunc
+	cancel    context.CancelFunc
 }
 
-// ProxyToGateway sets up a kubectl port-forward to the named Gateway's pod
+// ProxyToGateway sets up a SPDY port-forward to the named Gateway's pod
 // and returns a GatewayProxy for making HTTP requests. The port-forward is
 // automatically cleaned up when the scenario ends.
 func (s *Scenario) ProxyToGateway(namespace, gatewayName string) *GatewayProxy {
@@ -81,12 +78,6 @@ func (s *Scenario) ProxyToGateway(namespace, gatewayName string) *GatewayProxy {
 
 	s.OnCleanup(func() {
 		cancel()
-		proxy.mu.Lock()
-		defer proxy.mu.Unlock()
-		if proxy.cmd != nil && proxy.cmd.Process != nil {
-			_ = proxy.cmd.Process.Kill()
-			_ = proxy.cmd.Wait()
-		}
 	})
 
 	s.T.Logf("Port-forwarding %s/%s -> localhost:%s", namespace, gatewayName, port)
@@ -220,18 +211,35 @@ func (g *GatewayProxy) runPortForward(ctx context.Context) error {
 	}
 
 	podName := pods.Items[0].Name
-	cmd := exec.CommandContext(ctx, "kubectl", g.s.F.kubectlArgs(
-		g.namespace, "port-forward", podName,
-		fmt.Sprintf("%s:80", g.localPort),
-	)...)
 
-	g.mu.Lock()
-	g.cmd = cmd
-	g.mu.Unlock()
-
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("start port-forward: %w", err)
+	transport, upgrader, err := spdy.RoundTripperFor(g.s.F.RestConfig)
+	if err != nil {
+		return fmt.Errorf("create SPDY transport: %w", err)
 	}
-	// Reset backoff on successful start (connection established)
-	return cmd.Wait()
+
+	pfURL := g.s.F.KubeClient.CoreV1().RESTClient().Post().
+		Resource("pods").
+		Namespace(g.namespace).
+		Name(podName).
+		SubResource("portforward").
+		URL()
+
+	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, "POST", pfURL)
+
+	// Bridge context cancellation to the port-forwarder's stopCh.
+	stopCh := make(chan struct{})
+	go func() {
+		<-ctx.Done()
+		close(stopCh)
+	}()
+
+	pf, err := portforward.New(dialer,
+		[]string{fmt.Sprintf("%s:80", g.localPort)},
+		stopCh, nil, io.Discard, io.Discard,
+	)
+	if err != nil {
+		return fmt.Errorf("create port-forwarder: %w", err)
+	}
+
+	return pf.ForwardPorts()
 }
