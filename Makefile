@@ -175,13 +175,15 @@ test.integration:
 
 
 # -------------------------------------------------------------------------------
-# Coraza Coreruleset
+# Coraza Coreruleset targets
 # -------------------------------------------------------------------------------
 
 CORERULESET_VERSION ?= v4.23.0
 LOCALRULES ?= $(shell pwd)/tmp/rules
 CORERULESET_DIR ?= $(shell pwd)/tmp/coreruleset
 TMP_DOWNLOAD_DIR ?= $(shell pwd)/tmp/download
+NAMESPACE ?= default
+CORERULESET_EXTRA_FLAGS ?= --ignore-pmFromFile
 
 $(LOCALRULES):
 	mkdir -p "$(LOCALRULES)"
@@ -201,13 +203,44 @@ coraza.coreruleset.download:
 
 .PHONY: coraza.generaterules
 coraza.generaterules: coraza.coreruleset.download $(LOCALRULES)
-	python3 hack/generate_coreruleset_configmaps.py --rules-dir $(CORERULESET_DIR)/rules/ --ignore-pmFromFile > $(LOCALRULES)/rules.yaml
+	@python3 hack/generate_coreruleset_configmaps.py --rules-dir $(CORERULESET_DIR)/rules/ $(CORERULESET_EXTRA_FLAGS) > $(LOCALRULES)/rules.yaml
 
 .PHONY: coraza.coreruleset
 coraza.coreruleset: coraza.generaterules
-	kubectl delete --ignore-not-found -f $(LOCALRULES)/rules.yaml
-	kubectl apply --server-side -f $(LOCALRULES)/rules.yaml
+	kubectl delete -n $(NAMESPACE) --ignore-not-found -f $(LOCALRULES)/*.yaml
+	kubectl apply -n $(NAMESPACE) --server-side -f $(LOCALRULES)/*.yaml
 
+# TODO: Deploy a Gateway, set port-forward and log-forward and run ftw passing the right flags
+# -------------------------------------------------------------------------------
+# Coraza Coreruleset - FTW testing
+# -------------------------------------------------------------------------------
+
+FTW_NAMESPACE ?= ftw-test
+# TODO: we should get this from the created manifests
+GATEWAY_NAME ?= coraza-gateway 
+FTW_OUTPUT_FORMAT ?= plain
+FTW_EXTRA_ARGS ?= 
+
+.PHONY: ftw.environment
+ftw.environment: cluster.kind
+	kubectl delete ns --ignore-not-found $(FTW_NAMESPACE)
+	kubectl create ns $(FTW_NAMESPACE)
+	kubectl apply -n $(FTW_NAMESPACE) -f config/samples/
+	kubectl wait deploy -n $(FTW_NAMESPACE) -l gateway.networking.k8s.io/gateway-name=$(GATEWAY_NAME) --for=condition=Available
+
+.PHONY: ftw.coreruleset
+ftw.coreruleset:
+	$(MAKE) CORERULESET_EXTRA_FLAGS="--include-test-rule --ignore-pmFromFile" NAMESPACE=$(FTW_NAMESPACE) coraza.coreruleset
+
+.PHONY: ftw.run
+ftw.run: coraza.coreruleset.download
+	# Give some time for rules to be properly loaded by the Gateway
+	sleep 10
+	$(KIND) get kubeconfig --name $(KIND_CLUSTER_NAME) > $(shell pwd)/tmp/kubeconfig
+	python ftw/run.py --namespace $(FTW_NAMESPACE) --gateway $(GATEWAY_NAME) --config-file $(shell pwd)/ftw/ftw.yml --rules-directory $(CORERULESET_DIR)/tests/tests --kubeconfig $(shell pwd)/tmp/kubeconfig --output-format $(FTW_OUTPUT_FORMAT) $(FTW_EXTRA_ARGS)
+
+.PHONY: ftw
+ftw: ftw.environment ftw.coreruleset ftw.run
 
 # -------------------------------------------------------------------------------
 # Helm

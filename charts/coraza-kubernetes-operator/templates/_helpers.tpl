@@ -9,7 +9,11 @@ Chart name, truncated to 63 chars.
 Fully qualified app name, truncated to 63 chars.
 */}}
 {{- define "coraza-operator.fullname" -}}
+{{- if eq .Release.Name .Chart.Name -}}
+{{- .Release.Name | trunc 63 | trimSuffix "-" }}
+{{- else -}}
 {{- printf "%s-%s" .Release.Name .Chart.Name | trunc 63 | trimSuffix "-" }}
+{{- end -}}
 {{- end }}
 
 {{/*
