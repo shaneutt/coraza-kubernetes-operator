@@ -176,7 +176,7 @@ func (s *Scenario) dumpNamespace(ns string) {
 	for _, dc := range dumpCmds {
 		out, err := s.F.Kubectl(ns, dc.args...).CombinedOutput()
 		if err != nil {
-			s.T.Logf("[%s] error: %v", dc.label, err)
+			s.T.Logf("[%s] error: %v\n%s", dc.label, err, string(out))
 			continue
 		}
 		s.T.Logf("[%s]\n%s", dc.label, string(out))
