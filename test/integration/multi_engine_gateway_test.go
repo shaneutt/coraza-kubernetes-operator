@@ -54,10 +54,14 @@ func TestMultiEngineMultiGateway(t *testing.T) {
 		)
 		s.CreateRuleSet(ns, "shared-rules", []string{"base-rules", "block-rules"})
 
+		s.Step("deploy shared echo backend")
+		s.CreateEchoBackend(ns, "echo")
+
 		s.Step("create gateways and engines")
 		for i := 1; i <= 2; i++ {
 			gwName := fmt.Sprintf("shared-gw-%d", i)
 			engineName := fmt.Sprintf("engine-%d", i)
+			routeName := fmt.Sprintf("echo-route-%d", i)
 
 			s.CreateGateway(ns, gwName)
 			s.ExpectGatewayProgrammed(ns, gwName)
@@ -67,6 +71,8 @@ func TestMultiEngineMultiGateway(t *testing.T) {
 				GatewayName: gwName,
 			})
 			s.ExpectEngineReady(ns, engineName)
+
+			s.CreateHTTPRoute(ns, routeName, gwName, "echo")
 		}
 
 		s.Step("verify both gateways enforce rules")

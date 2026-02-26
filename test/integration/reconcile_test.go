@@ -53,6 +53,10 @@ func TestReconciliation(t *testing.T) {
 	s.ExpectEngineReady(ns, "engine")
 	s.ExpectWasmPluginExists(ns, "coraza-engine-engine")
 
+	s.Step("deploy echo backend")
+	s.CreateEchoBackend(ns, "echo")
+	s.CreateHTTPRoute(ns, "echo-route", "reconcile-gw", "echo")
+
 	gw := s.ProxyToGateway(ns, "reconcile-gw")
 
 	s.Step("verify initial rules enforce")

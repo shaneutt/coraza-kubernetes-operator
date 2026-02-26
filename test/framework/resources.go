@@ -22,10 +22,12 @@ import (
 	"os"
 
 	"github.com/stretchr/testify/require"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // Resource builders, GVRs, and CRUD helpers for integration tests.
@@ -50,6 +52,11 @@ var (
 	// GatewayGVR is the GroupVersionResource for Gateway resources.
 	GatewayGVR = schema.GroupVersionResource{
 		Group: "gateway.networking.k8s.io", Version: "v1", Resource: "gateways",
+	}
+
+	// HTTPRouteGVR is the GroupVersionResource for HTTPRoute resources.
+	HTTPRouteGVR = schema.GroupVersionResource{
+		Group: "gateway.networking.k8s.io", Version: "v1", Resource: "httproutes",
 	}
 
 	// WasmPluginGVR is the GroupVersionResource for WasmPlugin resources.
@@ -99,6 +106,15 @@ func defaultWasmImage() string {
 		return img
 	}
 	return fallbackWasmImage
+}
+
+const fallbackEchoImage = "registry.k8s.io/gateway-api/echo-basic:v20251204-v1.4.1"
+
+func defaultEchoImage() string {
+	if img := os.Getenv("ECHO_IMAGE"); img != "" {
+		return img
+	}
+	return fallbackEchoImage
 }
 
 // SimpleBlockRule generates a SecLang rule that denies requests containing
@@ -237,6 +253,38 @@ func BuildEngine(namespace, name string, opts EngineOpts) *unstructured.Unstruct
 	}
 }
 
+// BuildHTTPRoute builds an unstructured HTTPRoute that routes all traffic
+// from the named Gateway to the named backend Service on port 80.
+func BuildHTTPRoute(namespace, name, gatewayName, backendName string) *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "gateway.networking.k8s.io/v1",
+			"kind":       "HTTPRoute",
+			"metadata": map[string]interface{}{
+				"name":      name,
+				"namespace": namespace,
+			},
+			"spec": map[string]interface{}{
+				"parentRefs": []interface{}{
+					map[string]interface{}{
+						"name": gatewayName,
+					},
+				},
+				"rules": []interface{}{
+					map[string]interface{}{
+						"backendRefs": []interface{}{
+							map[string]interface{}{
+								"name": backendName,
+								"port": int64(80),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 // -----------------------------------------------------------------------------
 // Scenario - Resource Creation Methods
 // -----------------------------------------------------------------------------
@@ -345,6 +393,118 @@ func (s *Scenario) TryCreateEngine(namespace, name string, opts EngineOpts) erro
 		s.T.Context(), obj, metav1.CreateOptions{},
 	)
 	return err
+}
+
+// CreateHTTPRoute creates an HTTPRoute that routes traffic from the named
+// Gateway to the named backend Service and registers cleanup.
+func (s *Scenario) CreateHTTPRoute(namespace, name, gatewayName, backendName string) {
+	s.T.Helper()
+	ctx := s.T.Context()
+
+	obj := BuildHTTPRoute(namespace, name, gatewayName, backendName)
+	_, err := s.F.DynamicClient.Resource(HTTPRouteGVR).Namespace(namespace).Create(
+		ctx, obj, metav1.CreateOptions{},
+	)
+	require.NoError(s.T, err, "create HTTPRoute %s/%s", namespace, name)
+
+	s.T.Logf("Created HTTPRoute: %s/%s (gateway=%s, backend=%s)", namespace, name, gatewayName, backendName)
+	s.OnCleanup(func() {
+		if err := s.F.DynamicClient.Resource(HTTPRouteGVR).Namespace(namespace).Delete(
+			context.Background(), name, metav1.DeleteOptions{},
+		); err != nil {
+			s.T.Logf("cleanup: failed to delete HTTPRoute %s/%s: %v", namespace, name, err)
+		}
+	})
+}
+
+// CreateEchoBackend deploys the Gateway API echo server (Deployment + Service)
+// and waits for at least one pod to be Ready. The echo image defaults to
+// ECHO_IMAGE env var or the built-in Gateway API conformance echo image.
+func (s *Scenario) CreateEchoBackend(namespace, name string) {
+	s.T.Helper()
+	ctx := s.T.Context()
+
+	echoImage := defaultEchoImage()
+	replicas := int32(1)
+	containerPort := int32(3000)
+	servicePort := int32(80)
+
+	dep := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: &replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"app": name},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"app": name},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:  name,
+						Image: echoImage,
+						Ports: []corev1.ContainerPort{{
+							ContainerPort: containerPort,
+						}},
+					}},
+				},
+			},
+		},
+	}
+	_, err := s.F.KubeClient.AppsV1().Deployments(namespace).Create(ctx, dep, metav1.CreateOptions{})
+	require.NoError(s.T, err, "create Deployment %s/%s", namespace, name)
+
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: map[string]string{"app": name},
+			Ports: []corev1.ServicePort{{
+				Port:       servicePort,
+				TargetPort: intstr.FromInt32(containerPort),
+			}},
+		},
+	}
+	_, err = s.F.KubeClient.CoreV1().Services(namespace).Create(ctx, svc, metav1.CreateOptions{})
+	require.NoError(s.T, err, "create Service %s/%s", namespace, name)
+
+	s.T.Logf("Created echo backend: %s/%s (image: %s)", namespace, name, echoImage)
+
+	require.Eventually(s.T, func() bool {
+		pods, listErr := s.F.KubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("app=%s", name),
+		})
+		if listErr != nil || len(pods.Items) == 0 {
+			return false
+		}
+		for _, pod := range pods.Items {
+			for _, cond := range pod.Status.Conditions {
+				if cond.Type == corev1.PodReady && cond.Status == corev1.ConditionTrue {
+					return true
+				}
+			}
+		}
+		return false
+	}, DefaultTimeout, DefaultInterval, "echo backend %s/%s pod not ready", namespace, name)
+
+	s.OnCleanup(func() {
+		if err := s.F.KubeClient.AppsV1().Deployments(namespace).Delete(
+			context.Background(), name, metav1.DeleteOptions{},
+		); err != nil {
+			s.T.Logf("cleanup: failed to delete Deployment %s/%s: %v", namespace, name, err)
+		}
+		if err := s.F.KubeClient.CoreV1().Services(namespace).Delete(
+			context.Background(), name, metav1.DeleteOptions{},
+		); err != nil {
+			s.T.Logf("cleanup: failed to delete Service %s/%s: %v", namespace, name, err)
+		}
+	})
 }
 
 // -----------------------------------------------------------------------------

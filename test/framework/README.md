@@ -22,6 +22,7 @@ The framework has three layers:
 | `KIND_CLUSTER_NAME` | Connects to a kind cluster via `kind get kubeconfig` |
 | `KUBECONFIG` | Fallback: connects via standard kubeconfig |
 | `CORAZA_WASM_IMAGE` | Override the default WASM plugin OCI image |
+| `ECHO_IMAGE` | Override the default echo backend image |
 | `ARTIFACTS_DIR` | If set, write diagnostic dumps (YAML, logs, events) to this directory on test failure |
 
 ## Quick Start
@@ -59,7 +60,10 @@ SecRule ARGS "@contains attack" "id:1,phase:2,deny,status:403"`)
     })
     s.ExpectEngineReady(ns, "my-engine")
 
-    s.Step("verify WAF enforcement")
+    s.Step("deploy backend and verify WAF enforcement")
+    s.CreateEchoBackend(ns, "echo")
+    s.CreateHTTPRoute(ns, "echo-route", "my-gateway", "echo")
+
     gw := s.ProxyToGateway(ns, "my-gateway")
     gw.ExpectBlocked("/?q=attack")
     gw.ExpectAllowed("/?q=safe")
@@ -80,6 +84,8 @@ SecRule ARGS "@contains attack" "id:1,phase:2,deny,status:403"`)
 | `CreateEngine(ns, name, opts)` | Create Engine with cleanup |
 | `TryCreateRuleSet(ns, name, configMapNames)` | Create RuleSet, return error (for validation tests) |
 | `TryCreateEngine(ns, name, opts)` | Create Engine, return error (for validation tests) |
+| `CreateHTTPRoute(ns, name, gw, backend)` | Create HTTPRoute with cleanup |
+| `CreateEchoBackend(ns, name)` | Deploy echo server (Deployment + Service), wait for Ready |
 | `ApplyManifest(ns, path)` | Apply YAML file via kubectl with cleanup |
 
 ### Scenario - Resource Updates
@@ -107,7 +113,7 @@ SecRule ARGS "@contains attack" "id:1,phase:2,deny,status:403"`)
 | Method | Purpose |
 |---|---|
 | `ExpectBlocked(path)` | Poll until path returns 403 |
-| `ExpectAllowed(path)` | Poll until path returns non-403 |
+| `ExpectAllowed(path)` | Poll until path returns 200 (requires echo backend + HTTPRoute) |
 | `ExpectStatus(path, code)` | Poll until path returns specific status |
 | `Get(path)` | Single GET request, returns HTTPResult |
 | `URL(path)` | Returns full URL for manual requests |
@@ -121,6 +127,7 @@ Exported builder functions for use outside scenarios:
 | `BuildGateway(ns, name)` | Build unstructured Gateway |
 | `BuildRuleSet(ns, name, rules)` | Build unstructured RuleSet |
 | `BuildEngine(ns, name, opts)` | Build unstructured Engine |
+| `BuildHTTPRoute(ns, name, gw, backend)` | Build unstructured HTTPRoute |
 | `SimpleBlockRule(id, target)` | Generate a SecLang deny rule |
 
 ## Example Scenarios

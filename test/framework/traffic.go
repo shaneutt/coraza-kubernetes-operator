@@ -111,9 +111,12 @@ func (g *GatewayProxy) ExpectBlocked(path string) {
 	g.ExpectStatus(path, http.StatusForbidden)
 }
 
-// ExpectAllowed polls until the given path returns a status that is NOT 403.
-// The actual status depends on the backend (typically 404 when no route is
-// configured, 200 when a backend exists).
+// ExpectAllowed polls until the given path returns HTTP 200, confirming
+// the request passed through the WAF and reached the backend. This requires
+// an HTTPRoute and echo backend to be deployed (see CreateEchoBackend and
+// CreateHTTPRoute). Checking for 200 rather than "not 403" avoids ambiguity:
+// a 404 without a backend doesn't prove the WAF allowed the request — it
+// could also mean the route is misconfigured.
 func (g *GatewayProxy) ExpectAllowed(path string) {
 	g.s.T.Helper()
 	require.EventuallyWithT(g.s.T, func(collect *assert.CollectT) {
@@ -125,8 +128,8 @@ func (g *GatewayProxy) ExpectAllowed(path string) {
 			_, _ = io.ReadAll(resp.Body)
 			_ = resp.Body.Close()
 		}()
-		assert.NotEqual(collect, http.StatusForbidden, resp.StatusCode,
-			"expected %s to not be blocked (not 403), got: %d", path, resp.StatusCode)
+		assert.Equal(collect, http.StatusOK, resp.StatusCode,
+			"expected %s to be allowed (200), got: %d", path, resp.StatusCode)
 	}, DefaultTimeout, DefaultInterval)
 }
 

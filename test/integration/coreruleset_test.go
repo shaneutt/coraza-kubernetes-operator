@@ -104,8 +104,12 @@ SecRule ARGS "@rx (?i:<script[^>]*>)" \
 	s.ExpectWasmPluginExists(ns, "coraza-engine-crs-engine")
 
 	// -------------------------------------------------------------------------
-	// Step 4: Verify WAF enforcement
+	// Step 4: Deploy backend and verify WAF enforcement
 	// -------------------------------------------------------------------------
+
+	s.Step("deploy echo backend")
+	s.CreateEchoBackend(ns, "echo")
+	s.CreateHTTPRoute(ns, "echo-route", "crs-gateway", "echo")
 
 	gw := s.ProxyToGateway(ns, "crs-gateway")
 
@@ -115,7 +119,6 @@ SecRule ARGS "@rx (?i:<script[^>]*>)" \
 	s.Step("verify XSS is blocked")
 	gw.ExpectStatus("/?p=<script>alert(1)</script>", http.StatusForbidden)
 
-	s.Step("verify normal traffic is not blocked")
-	// 404 is expected (no backend) but not 403 (WAF block)
+	s.Step("verify normal traffic passes through to backend")
 	gw.ExpectAllowed("/?q=hello+world")
 }
