@@ -203,7 +203,7 @@ coraza.coreruleset.download:
 
 .PHONY: coraza.generaterules
 coraza.generaterules: coraza.coreruleset.download $(LOCALRULES)
-	python3 hack/generate_coreruleset_configmaps.py --rules-dir $(CORERULESET_DIR)/rules/ $(CORERULESET_EXTRA_FLAGS) > $(LOCALRULES)/rules.yaml
+	@python3 hack/generate_coreruleset_configmaps.py --rules-dir $(CORERULESET_DIR)/rules/ $(CORERULESET_EXTRA_FLAGS) > $(LOCALRULES)/rules.yaml
 
 .PHONY: coraza.coreruleset
 coraza.coreruleset: coraza.generaterules
@@ -216,15 +216,27 @@ coraza.coreruleset: coraza.generaterules
 # -------------------------------------------------------------------------------
 
 FTW_NAMESPACE ?= ftw-test
+# TODO: we should get this from the created manifests
+GATEWAY_NAME ?= coraza-gateway 
+FTW_OUTPUT_FORMAT ?= plain
 
-.PHONY: ftw.coreruleset
-ftw.coreruleset:
+.PHONY: ftw.environment
+ftw.environment: cluster.kind
 	kubectl delete ns --ignore-not-found $(FTW_NAMESPACE)
 	kubectl create ns $(FTW_NAMESPACE)
 	kubectl apply -n $(FTW_NAMESPACE) -f config/samples/
-	$(MAKE) CORAZA_EXTRA_FLAGS="--include-test-rule --ignore-pmFromFile" NAMESPACE=$(FTW_NAMESPACE) coraza.coreruleset
-#go tool -modfile=$(shell pwd)/ftw/go.mod github.com/coreruleset/go-ftw/v2 run -d $(CORERULESET_DIR)/tests/tests --config $(shell pwd)/ftw/ftw.yml --read-timeout=10s  --show-failures-only
 
+.PHONY: ftw.coreruleset
+ftw.coreruleset:
+	$(MAKE) CORERULESET_EXTRA_FLAGS="--include-test-rule --ignore-pmFromFile" NAMESPACE=$(FTW_NAMESPACE) coraza.coreruleset
+
+.PHONY: ftw.run
+ftw.run:
+	$(KIND) get kubeconfig --name $(KIND_CLUSTER_NAME) > $(shell pwd)/tmp/kubeconfig
+	python ftw/run.py --namespace $(NAMESPACE) --gateway $(GATEWAY_NAME) --config-file $(shell pwd)/ftw/ftw.yml --rules-directory $(CORERULESET_DIR)/tests/tests --kubeconfig $(shell pwd)/tmp/kubeconfig --output-format $(FTW_OUTPUT_FORMAT)
+
+.PHONY: ftw
+ftw: ftw.environment ftw.coreruleset ftw.run
 
 # -------------------------------------------------------------------------------
 # Helm

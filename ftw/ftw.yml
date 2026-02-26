@@ -1,10 +1,7 @@
+# The overrides for logs and IP is set during FTW execution
 ---
-logfile: '/home/rpchevuz/codes/work/waf/ftw/ftw.log'
 maxmarkerretries: 10
 testoverride:
-  input:
-    dest_addr: 172.18.255.128
-    port: 80
   ignore:
     # Envoy not compatible tests
     '911100-5': 'Invalid HTTP method. Rejected by Envoy with Error 400'
