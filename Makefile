@@ -219,6 +219,7 @@ FTW_NAMESPACE ?= ftw-test
 # TODO: we should get this from the created manifests
 GATEWAY_NAME ?= coraza-gateway 
 FTW_OUTPUT_FORMAT ?= plain
+FTW_EXTRA_ARGS ?= 
 
 .PHONY: ftw.environment
 ftw.environment: cluster.kind
@@ -236,7 +237,7 @@ ftw.run:
 	# Give some time for loads to be properly loaded by the Gateway
 	sleep 10
 	$(KIND) get kubeconfig --name $(KIND_CLUSTER_NAME) > $(shell pwd)/tmp/kubeconfig
-	python ftw/run.py --namespace $(FTW_NAMESPACE) --gateway $(GATEWAY_NAME) --config-file $(shell pwd)/ftw/ftw.yml --rules-directory $(CORERULESET_DIR)/tests/tests --kubeconfig $(shell pwd)/tmp/kubeconfig --output-format $(FTW_OUTPUT_FORMAT)
+	python ftw/run.py --namespace $(FTW_NAMESPACE) --gateway $(GATEWAY_NAME) --config-file $(shell pwd)/ftw/ftw.yml --rules-directory $(CORERULESET_DIR)/tests/tests --kubeconfig $(shell pwd)/tmp/kubeconfig --output-format $(FTW_OUTPUT_FORMAT) $(FTW_EXTRA_ARGS)
 
 .PHONY: ftw
 ftw: ftw.environment ftw.coreruleset ftw.run
