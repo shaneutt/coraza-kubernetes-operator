@@ -17,10 +17,12 @@ limitations under the License.
 package framework
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"os/exec"
+	"sync"
 	"time"
 
 	"github.com/stretchr/testify/require"
@@ -36,8 +38,10 @@ type GatewayProxy struct {
 	localPort string
 	baseURL   string
 	httpc     *http.Client
-	cmd       *exec.Cmd
-	stopCh    chan struct{}
+
+	mu     sync.Mutex
+	cmd    *exec.Cmd
+	cancel context.CancelFunc
 }
 
 // ProxyToGateway sets up a kubectl port-forward to the named Gateway's pod
@@ -46,6 +50,7 @@ type GatewayProxy struct {
 func (s *Scenario) ProxyToGateway(namespace, gatewayName string) *GatewayProxy {
 	s.T.Helper()
 	port := AllocatePort()
+	ctx, cancel := context.WithCancel(context.Background())
 
 	proxy := &GatewayProxy{
 		s:         s,
@@ -54,12 +59,10 @@ func (s *Scenario) ProxyToGateway(namespace, gatewayName string) *GatewayProxy {
 		localPort: port,
 		baseURL:   fmt.Sprintf("http://localhost:%s", port),
 		httpc:     &http.Client{Timeout: 10 * time.Second},
-		stopCh:    make(chan struct{}),
+		cancel:    cancel,
 	}
 
-	// Start a goroutine that maintains the port-forward connection,
-	// restarting it if the process exits.
-	go proxy.maintain()
+	go proxy.maintain(ctx)
 
 	// Wait for the port-forward to accept connections.
 	require.Eventually(s.T, func() bool {
@@ -77,10 +80,12 @@ func (s *Scenario) ProxyToGateway(namespace, gatewayName string) *GatewayProxy {
 	)
 
 	s.OnCleanup(func() {
-		close(proxy.stopCh)
-		time.Sleep(1 * time.Second)
+		cancel()
+		proxy.mu.Lock()
+		defer proxy.mu.Unlock()
 		if proxy.cmd != nil && proxy.cmd.Process != nil {
 			_ = proxy.cmd.Process.Kill()
+			_ = proxy.cmd.Wait()
 		}
 	})
 
@@ -160,38 +165,65 @@ type HTTPResult struct {
 // Port Forward Management
 // -----------------------------------------------------------------------------
 
-func (g *GatewayProxy) maintain() {
+func (g *GatewayProxy) maintain(ctx context.Context) {
+	backoff := time.Second
+	const maxBackoff = 10 * time.Second
+
 	for {
 		select {
-		case <-g.stopCh:
+		case <-ctx.Done():
 			return
 		default:
-			g.runPortForward()
-			time.Sleep(2 * time.Second)
 		}
+
+		err := g.runPortForward(ctx)
+		if ctx.Err() != nil {
+			return
+		}
+		if err != nil {
+			g.s.T.Logf("port-forward %s/%s restarting (backoff %s): %v",
+				g.namespace, g.gateway, backoff, err)
+		}
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(backoff):
+		}
+
+		backoff = min(backoff*2, maxBackoff)
 	}
 }
 
-func (g *GatewayProxy) runPortForward() {
+func (g *GatewayProxy) runPortForward(ctx context.Context) error {
 	labelSelector := fmt.Sprintf(
 		"gateway.networking.k8s.io/gateway-name=%s", g.gateway,
 	)
 
 	pods, err := g.s.F.KubeClient.CoreV1().Pods(g.namespace).List(
-		g.s.T.Context(),
+		ctx,
 		metav1.ListOptions{LabelSelector: labelSelector},
 	)
-	if err != nil || len(pods.Items) == 0 {
-		return
+	if err != nil {
+		return fmt.Errorf("list pods: %w", err)
+	}
+	if len(pods.Items) == 0 {
+		return fmt.Errorf("no pods matching %s", labelSelector)
 	}
 
 	podName := pods.Items[0].Name
-	g.cmd = g.s.F.Kubectl(
+	cmd := exec.CommandContext(ctx, "kubectl", g.s.F.kubectlArgs(
 		g.namespace, "port-forward", podName,
 		fmt.Sprintf("%s:80", g.localPort),
-	)
-	if err := g.cmd.Start(); err != nil {
-		return
+	)...)
+
+	g.mu.Lock()
+	g.cmd = cmd
+	g.mu.Unlock()
+
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("start port-forward: %w", err)
 	}
-	_ = g.cmd.Wait()
+	// Reset backoff on successful start (connection established)
+	return cmd.Wait()
 }

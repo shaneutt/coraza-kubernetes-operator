@@ -135,6 +135,10 @@ func (f *Framework) KubeContext() string {
 // Kubectl returns an exec.Cmd for running kubectl against the cluster
 // in the given namespace.
 func (f *Framework) Kubectl(namespace string, args ...string) *exec.Cmd {
+	return exec.Command("kubectl", f.kubectlArgs(namespace, args...)...)
+}
+
+func (f *Framework) kubectlArgs(namespace string, args ...string) []string {
 	cmdArgs := make([]string, 0, len(args)+4)
 	if ctx := f.KubeContext(); ctx != "" {
 		cmdArgs = append(cmdArgs, "--context", ctx)
@@ -143,5 +147,5 @@ func (f *Framework) Kubectl(namespace string, args ...string) *exec.Cmd {
 		cmdArgs = append(cmdArgs, "-n", namespace)
 	}
 	cmdArgs = append(cmdArgs, args...)
-	return exec.Command("kubectl", cmdArgs...)
+	return cmdArgs
 }
