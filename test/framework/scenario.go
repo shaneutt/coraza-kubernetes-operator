@@ -37,10 +37,12 @@ const (
 // Scenario manages the lifecycle of a single test scenario: namespace
 // creation, resource cleanup, and step tracking.
 //
+// Cleanup is registered automatically via t.Cleanup when the Scenario
+// is created — there is no need to defer it manually.
+//
 // Usage:
 //
 //	s := fw.NewScenario(t)
-//	defer s.Cleanup()
 //	s.CreateNamespace("test-ns")
 //	s.Step("do something")
 //	// ... test logic ...
@@ -50,14 +52,17 @@ type Scenario struct {
 	cleanups []func()
 }
 
-// NewScenario creates a Scenario bound to the given test. Always defer
-// Cleanup() immediately after creation.
+// NewScenario creates a Scenario bound to the given test. Cleanup is
+// registered automatically via t.Cleanup and runs after the test (and
+// all its subtests) complete.
 func (f *Framework) NewScenario(t *testing.T) *Scenario {
 	t.Helper()
-	return &Scenario{
+	s := &Scenario{
 		T: t,
 		F: f,
 	}
+	t.Cleanup(s.Cleanup)
+	return s
 }
 
 // Cleanup runs all registered cleanup functions in reverse order.

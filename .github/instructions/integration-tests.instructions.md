@@ -4,10 +4,9 @@ applyTo: "test/integration/**/*.go"
 
 - All integration test files must have `//go:build integration` and belong to `package integration`.
 - A shared `*framework.Framework` (`fw`) is created once in `suite_test.go` via `TestMain`. Never call `framework.New()` inside a test function.
-- Every test must create a Scenario and defer cleanup immediately:
+- Every test must create a Scenario. Cleanup is registered automatically via `t.Cleanup` — do not call `defer s.Cleanup()`:
   ```go
   s := fw.NewScenario(t)
-  defer s.Cleanup()
   ```
 - Use `s.Step("description")` to separate logical phases. This appears in test output on failure.
 - Use unique namespace names per test to avoid collisions.

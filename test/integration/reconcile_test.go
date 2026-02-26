@@ -29,7 +29,6 @@ import (
 // updates) and propagates them to the WAF.
 func TestReconciliation(t *testing.T) {
 	s := fw.NewScenario(t)
-	defer s.Cleanup()
 
 	ns := "reconcile-test"
 	s.CreateNamespace(ns)

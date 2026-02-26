@@ -45,7 +45,6 @@ func TestMultiEngineMultiGateway(t *testing.T) {
 
 	t.Run("engine_per_gateway_shared_ruleset", func(t *testing.T) {
 		s := fw.NewScenario(t)
-		defer s.Cleanup()
 
 		ns := "multi-target-test"
 		s.CreateNamespace(ns)
@@ -87,7 +86,6 @@ func TestMultiEngineMultiGateway(t *testing.T) {
 
 	t.Run("multiple_engines_single_gateway", func(t *testing.T) {
 		s := fw.NewScenario(t)
-		defer s.Cleanup()
 
 		ns := "multi-engine-test"
 		s.CreateNamespace(ns)
@@ -151,7 +149,6 @@ func TestMultiEngineMultiGateway(t *testing.T) {
 
 	t.Run("engine_no_matching_gateway", func(t *testing.T) {
 		s := fw.NewScenario(t)
-		defer s.Cleanup()
 
 		ns := "no-target-test"
 		s.CreateNamespace(ns)

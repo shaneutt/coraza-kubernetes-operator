@@ -32,7 +32,6 @@ import (
 // Related: https://github.com/networking-incubator/coraza-kubernetes-operator/issues/13
 func TestMultipleGateways(t *testing.T) {
 	s := fw.NewScenario(t)
-	defer s.Cleanup()
 
 	ns := "multi-gw-test"
 	gatewayCount := 3

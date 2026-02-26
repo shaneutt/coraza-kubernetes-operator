@@ -36,7 +36,6 @@ import (
 // Related: https://github.com/networking-incubator/coraza-kubernetes-operator/issues/12
 func TestCoreRulesetCompatibility(t *testing.T) {
 	s := fw.NewScenario(t)
-	defer s.Cleanup()
 
 	ns := "crs-compat-test"
 	s.CreateNamespace(ns)

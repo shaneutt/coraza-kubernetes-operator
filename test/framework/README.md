@@ -41,7 +41,6 @@ func TestMain(m *testing.M) {
 // In a test file:
 func TestMyScenario(t *testing.T) {
     s := fw.NewScenario(t)
-    defer s.Cleanup()
 
     ns := "my-test-ns"
     s.CreateNamespace(ns)
