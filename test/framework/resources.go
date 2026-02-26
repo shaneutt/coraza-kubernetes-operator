@@ -28,6 +28,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
+// Resource builders, GVRs, and CRUD helpers for integration tests.
+// These use unstructured objects and the dynamic client. Unit tests
+// use test/utils/resource_builders.go which builds typed API objects.
+
 // -----------------------------------------------------------------------------
 // GVRs
 // -----------------------------------------------------------------------------

@@ -19,11 +19,8 @@ limitations under the License.
 package integration
 
 import (
-	"context"
 	"fmt"
 	"testing"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/networking-incubator/coraza-kubernetes-operator/test/framework"
 )
@@ -105,42 +102,28 @@ func TestMultiEngineMultiGateway(t *testing.T) {
 		s.CreateRuleSet(ns, "ruleset-a", []string{"base-rules", "rules-a"})
 		s.CreateRuleSet(ns, "ruleset-b", []string{"base-rules", "rules-b"})
 
-		s.Step("attach first engine to the gateway")
+		s.Step("attach both engines to the gateway")
+		// The operator currently accepts multiple engines targeting the
+		// same gateway — there is no admission webhook preventing it.
+		// Each engine creates its own WasmPlugin, and both enforce rules.
+		// If issue #52 adds rejection logic, this test should be updated
+		// to use TryCreateEngine and assert the error.
 		s.CreateEngine(ns, "engine-a", framework.EngineOpts{
 			RuleSetName: "ruleset-a",
 			GatewayName: "target-gw",
 		})
 		s.ExpectEngineReady(ns, "engine-a")
 
-		s.Step("attempt to attach second engine to the same gateway")
-		// Per issue #52, multiple engines on a single gateway should be
-		// disallowed in v0.2.0. This test documents the actual behavior.
-		// If it's rejected, TryCreateEngine returns an error.
-		// If it's accepted, we verify what happens.
-		err := s.TryCreateEngine(ns, "engine-b", framework.EngineOpts{
+		s.CreateEngine(ns, "engine-b", framework.EngineOpts{
 			RuleSetName: "ruleset-b",
 			GatewayName: "target-gw",
 		})
-		if err != nil {
-			t.Logf("Second engine rejected (expected for v0.2.0): %v", err)
-		} else {
-			t.Log("Second engine accepted - verifying combined behavior")
-			s.OnCleanup(func() {
-				// Background: test context may already be cancelled; cleanup must still run.
-				_ = s.F.DynamicClient.Resource(framework.EngineGVR).Namespace(ns).Delete(
-					context.Background(), "engine-b", metav1.DeleteOptions{},
-				)
-			})
-		}
+		s.ExpectEngineReady(ns, "engine-b")
 
-		s.Step("verify first engine's rules are enforced")
+		s.Step("verify both engines enforce their rules")
 		gw := s.ProxyToGateway(ns, "target-gw")
 		gw.ExpectBlocked("/?test=attackA")
-
-		if err == nil {
-			s.Step("verify second engine's rules are also enforced")
-			gw.ExpectBlocked("/?test=attackB")
-		}
+		gw.ExpectBlocked("/?test=attackB")
 	})
 
 	// -------------------------------------------------------------------------
