@@ -240,7 +240,7 @@ func BuildEngine(namespace, name string, opts EngineOpts) *unstructured.Unstruct
 // CreateConfigMap creates a ConfigMap with WAF rules and registers cleanup.
 func (s *Scenario) CreateConfigMap(namespace, name, rules string) {
 	s.T.Helper()
-	ctx := context.Background()
+	ctx := s.T.Context()
 
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -256,6 +256,7 @@ func (s *Scenario) CreateConfigMap(namespace, name, rules string) {
 
 	s.T.Logf("Created ConfigMap: %s/%s", namespace, name)
 	s.OnCleanup(func() {
+		// Background: test context may already be cancelled; cleanup must still run.
 		if err := s.F.KubeClient.CoreV1().ConfigMaps(namespace).Delete(
 			context.Background(), name, metav1.DeleteOptions{},
 		); err != nil {
@@ -267,7 +268,7 @@ func (s *Scenario) CreateConfigMap(namespace, name, rules string) {
 // CreateGateway creates a Gateway resource and registers cleanup.
 func (s *Scenario) CreateGateway(namespace, name string) {
 	s.T.Helper()
-	ctx := context.Background()
+	ctx := s.T.Context()
 
 	obj := BuildGateway(namespace, name)
 	_, err := s.F.DynamicClient.Resource(GatewayGVR).Namespace(namespace).Create(
@@ -277,6 +278,7 @@ func (s *Scenario) CreateGateway(namespace, name string) {
 
 	s.T.Logf("Created Gateway: %s/%s", namespace, name)
 	s.OnCleanup(func() {
+		// Background: test context may already be cancelled; cleanup must still run.
 		if err := s.F.DynamicClient.Resource(GatewayGVR).Namespace(namespace).Delete(
 			context.Background(), name, metav1.DeleteOptions{},
 		); err != nil {
@@ -294,6 +296,7 @@ func (s *Scenario) CreateRuleSet(namespace, name string, configMapNames []string
 
 	s.T.Logf("Created RuleSet: %s/%s", namespace, name)
 	s.OnCleanup(func() {
+		// Background: test context may already be cancelled; cleanup must still run.
 		if err := s.F.DynamicClient.Resource(RuleSetGVR).Namespace(namespace).Delete(
 			context.Background(), name, metav1.DeleteOptions{},
 		); err != nil {
@@ -307,7 +310,7 @@ func (s *Scenario) CreateRuleSet(namespace, name string, configMapNames []string
 func (s *Scenario) TryCreateRuleSet(namespace, name string, configMapNames []string) error {
 	obj := BuildRuleSet(namespace, name, configMapNames)
 	_, err := s.F.DynamicClient.Resource(RuleSetGVR).Namespace(namespace).Create(
-		context.Background(), obj, metav1.CreateOptions{},
+		s.T.Context(), obj, metav1.CreateOptions{},
 	)
 	return err
 }
@@ -321,6 +324,7 @@ func (s *Scenario) CreateEngine(namespace, name string, opts EngineOpts) {
 
 	s.T.Logf("Created Engine: %s/%s", namespace, name)
 	s.OnCleanup(func() {
+		// Background: test context may already be cancelled; cleanup must still run.
 		if err := s.F.DynamicClient.Resource(EngineGVR).Namespace(namespace).Delete(
 			context.Background(), name, metav1.DeleteOptions{},
 		); err != nil {
@@ -334,7 +338,7 @@ func (s *Scenario) CreateEngine(namespace, name string, opts EngineOpts) {
 func (s *Scenario) TryCreateEngine(namespace, name string, opts EngineOpts) error {
 	obj := BuildEngine(namespace, name, opts)
 	_, err := s.F.DynamicClient.Resource(EngineGVR).Namespace(namespace).Create(
-		context.Background(), obj, metav1.CreateOptions{},
+		s.T.Context(), obj, metav1.CreateOptions{},
 	)
 	return err
 }
@@ -347,7 +351,7 @@ func (s *Scenario) TryCreateEngine(namespace, name string, opts EngineOpts) erro
 // given ConfigMap names. Fails the test on error.
 func (s *Scenario) UpdateRuleSet(namespace, name string, configMapNames []string) {
 	s.T.Helper()
-	ctx := context.Background()
+	ctx := s.T.Context()
 
 	obj, err := s.F.DynamicClient.Resource(RuleSetGVR).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
 	require.NoError(s.T, err, "get RuleSet %s/%s", namespace, name)
@@ -369,7 +373,7 @@ func (s *Scenario) UpdateRuleSet(namespace, name string, configMapNames []string
 // Fails the test on error.
 func (s *Scenario) UpdateConfigMap(namespace, name, rules string) {
 	s.T.Helper()
-	ctx := context.Background()
+	ctx := s.T.Context()
 
 	cm, err := s.F.KubeClient.CoreV1().ConfigMaps(namespace).Get(ctx, name, metav1.GetOptions{})
 	require.NoError(s.T, err, "get ConfigMap %s/%s", namespace, name)

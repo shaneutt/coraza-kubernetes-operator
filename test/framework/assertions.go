@@ -17,8 +17,6 @@ limitations under the License.
 package framework
 
 import (
-	"context"
-
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -35,7 +33,7 @@ func (s *Scenario) ExpectCondition(namespace, name string, gvr schema.GroupVersi
 	s.T.Helper()
 	require.Eventually(s.T, func() bool {
 		obj, err := s.F.DynamicClient.Resource(gvr).Namespace(namespace).Get(
-			context.Background(), name, metav1.GetOptions{},
+			s.T.Context(), name, metav1.GetOptions{},
 		)
 		if err != nil {
 			return false
@@ -86,7 +84,7 @@ func (s *Scenario) ExpectWasmPluginExists(namespace, name string) {
 	s.T.Logf("Waiting for WasmPlugin %s/%s to exist", namespace, name)
 	require.Eventually(s.T, func() bool {
 		_, err := s.F.DynamicClient.Resource(WasmPluginGVR).Namespace(namespace).Get(
-			context.Background(), name, metav1.GetOptions{},
+			s.T.Context(), name, metav1.GetOptions{},
 		)
 		return err == nil
 	}, DefaultTimeout, DefaultInterval, "WasmPlugin %s/%s should exist", namespace, name)
@@ -98,7 +96,7 @@ func (s *Scenario) ExpectResourceGone(namespace, name string, gvr schema.GroupVe
 	s.T.Logf("Waiting for %s %s/%s to be deleted", gvr.Resource, namespace, name)
 	require.Eventually(s.T, func() bool {
 		_, err := s.F.DynamicClient.Resource(gvr).Namespace(namespace).Get(
-			context.Background(), name, metav1.GetOptions{},
+			s.T.Context(), name, metav1.GetOptions{},
 		)
 		return err != nil
 	}, DefaultTimeout, DefaultInterval,

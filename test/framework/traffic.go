@@ -17,7 +17,6 @@ limitations under the License.
 package framework
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -179,7 +178,7 @@ func (g *GatewayProxy) runPortForward() {
 	)
 
 	pods, err := g.s.F.KubeClient.CoreV1().Pods(g.namespace).List(
-		context.Background(),
+		g.s.T.Context(),
 		metav1.ListOptions{LabelSelector: labelSelector},
 	)
 	if err != nil || len(pods.Items) == 0 {

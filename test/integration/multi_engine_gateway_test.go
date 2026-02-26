@@ -128,6 +128,7 @@ func TestMultiEngineMultiGateway(t *testing.T) {
 		} else {
 			t.Log("Second engine accepted - verifying combined behavior")
 			s.OnCleanup(func() {
+				// Background: test context may already be cancelled; cleanup must still run.
 				_ = s.F.DynamicClient.Resource(framework.EngineGVR).Namespace(ns).Delete(
 					context.Background(), "engine-b", metav1.DeleteOptions{},
 				)

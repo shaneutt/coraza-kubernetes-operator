@@ -81,7 +81,7 @@ func (s *Scenario) Step(name string) {
 // CreateNamespace creates a namespace and registers it for cleanup.
 func (s *Scenario) CreateNamespace(name string) {
 	s.T.Helper()
-	ctx := context.Background()
+	ctx := s.T.Context()
 
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
@@ -91,6 +91,7 @@ func (s *Scenario) CreateNamespace(name string) {
 
 	s.T.Logf("Created namespace: %s", name)
 	s.OnCleanup(func() {
+		// Background: test context may already be cancelled; cleanup must still run.
 		if err := s.F.KubeClient.CoreV1().Namespaces().Delete(
 			context.Background(), name, metav1.DeleteOptions{},
 		); err != nil {
