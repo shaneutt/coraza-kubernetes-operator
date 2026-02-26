@@ -15,6 +15,7 @@ rules:
       - watch
   - apiGroups:
       - ""
+      - events.k8s.io
     resources:
       - events
     verbs:
@@ -55,6 +56,12 @@ rules:
       - patch
       - update
       - watch
+  - apiGroups:
+      - waf.k8s.coraza.io
+    resources:
+      - engines/finalizers
+    verbs:
+      - update
   - apiGroups:
       - waf.k8s.coraza.io
     resources:
