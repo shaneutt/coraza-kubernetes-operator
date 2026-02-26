@@ -112,7 +112,7 @@ jobs:
       - name: run FTW tests
         run: make ftw
         env:
-          KIND_CLUSTER_NAME: coraza-kubernetes-operator-ftw
+          KIND_CLUSTER_NAME: coraza-kubernetes-operator-integration
           FTW_OUTPUT_FORMAT: github
 
   integration-tests:
