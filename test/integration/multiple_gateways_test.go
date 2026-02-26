@@ -31,12 +31,11 @@ import (
 //
 // Related: https://github.com/networking-incubator/coraza-kubernetes-operator/issues/13
 func TestMultipleGateways(t *testing.T) {
+	t.Parallel()
 	s := fw.NewScenario(t)
 
-	ns := "multi-gw-test"
+	ns := s.GenerateNamespace("multi-gw")
 	gatewayCount := 3
-
-	s.CreateNamespace(ns)
 
 	// -------------------------------------------------------------------------
 	// Step 1: Create shared rule set

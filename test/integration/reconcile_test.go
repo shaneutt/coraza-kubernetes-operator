@@ -28,10 +28,10 @@ import (
 // reacts to live resource changes (RuleSet mutations, ConfigMap content
 // updates) and propagates them to the WAF.
 func TestReconciliation(t *testing.T) {
+	t.Parallel()
 	s := fw.NewScenario(t)
 
-	ns := "reconcile-test"
-	s.CreateNamespace(ns)
+	ns := s.GenerateNamespace("reconcile")
 
 	// --- deploy initial rules and engine ---
 

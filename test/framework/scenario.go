@@ -18,6 +18,8 @@ package framework
 
 import (
 	"context"
+	"crypto/rand"
+	"fmt"
 	"testing"
 	"time"
 
@@ -43,7 +45,7 @@ const (
 // Usage:
 //
 //	s := fw.NewScenario(t)
-//	s.CreateNamespace("test-ns")
+//	ns := s.GenerateNamespace("my-test")
 //	s.Step("do something")
 //	// ... test logic ...
 type Scenario struct {
@@ -81,6 +83,19 @@ func (s *Scenario) OnCleanup(fn func()) {
 func (s *Scenario) Step(name string) {
 	s.T.Helper()
 	s.T.Logf("--- step: %s", name)
+}
+
+// GenerateNamespace creates a namespace with a random 6-hex-char suffix
+// appended to prefix (e.g. "my-test-a1b2c3") and registers it for cleanup.
+// Returns the generated name for use in subsequent resource calls.
+func (s *Scenario) GenerateNamespace(prefix string) string {
+	s.T.Helper()
+	b := make([]byte, 3)
+	_, err := rand.Read(b)
+	require.NoError(s.T, err, "generate random suffix")
+	name := fmt.Sprintf("%s-%x", prefix, b)
+	s.CreateNamespace(name)
+	return name
 }
 
 // CreateNamespace creates a namespace and registers it for cleanup.

@@ -35,16 +35,17 @@ import (
 //
 // Related: https://github.com/networking-incubator/coraza-kubernetes-operator/issues/52
 func TestMultiEngineMultiGateway(t *testing.T) {
+	t.Parallel()
 
 	// -------------------------------------------------------------------------
 	// Sub-test: One Engine per Gateway, multiple Gateways sharing a RuleSet
 	// -------------------------------------------------------------------------
 
 	t.Run("engine_per_gateway_shared_ruleset", func(t *testing.T) {
+		t.Parallel()
 		s := fw.NewScenario(t)
 
-		ns := "multi-target-test"
-		s.CreateNamespace(ns)
+		ns := s.GenerateNamespace("multi-target")
 
 		s.Step("create shared rules")
 		s.CreateConfigMap(ns, "base-rules", `SecRuleEngine On`)
@@ -82,10 +83,10 @@ func TestMultiEngineMultiGateway(t *testing.T) {
 	// -------------------------------------------------------------------------
 
 	t.Run("multiple_engines_single_gateway", func(t *testing.T) {
+		t.Parallel()
 		s := fw.NewScenario(t)
 
-		ns := "multi-engine-test"
-		s.CreateNamespace(ns)
+		ns := s.GenerateNamespace("multi-engine")
 
 		s.Step("create a single gateway")
 		s.CreateGateway(ns, "target-gw")
@@ -131,10 +132,10 @@ func TestMultiEngineMultiGateway(t *testing.T) {
 	// -------------------------------------------------------------------------
 
 	t.Run("engine_no_matching_gateway", func(t *testing.T) {
+		t.Parallel()
 		s := fw.NewScenario(t)
 
-		ns := "no-target-test"
-		s.CreateNamespace(ns)
+		ns := s.GenerateNamespace("no-target")
 
 		s.Step("create rules and engine targeting non-existent gateway")
 		s.CreateConfigMap(ns, "base-rules", `SecRuleEngine On`)

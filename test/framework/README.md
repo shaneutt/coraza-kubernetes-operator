@@ -40,10 +40,10 @@ func TestMain(m *testing.M) {
 
 // In a test file:
 func TestMyScenario(t *testing.T) {
+    t.Parallel()
     s := fw.NewScenario(t)
 
-    ns := "my-test-ns"
-    s.CreateNamespace(ns)
+    ns := s.GenerateNamespace("my-test")
 
     s.Step("create WAF resources")
     s.CreateConfigMap(ns, "rules", `SecRuleEngine On
@@ -71,7 +71,8 @@ SecRule ARGS "@contains attack" "id:1,phase:2,deny,status:403"`)
 
 | Method | Purpose |
 |---|---|
-| `CreateNamespace(name)` | Create namespace with cleanup |
+| `GenerateNamespace(prefix)` | Create namespace with random suffix, returns generated name |
+| `CreateNamespace(name)` | Create namespace with exact name and cleanup |
 | `CreateConfigMap(ns, name, rules)` | Create ConfigMap with WAF rules |
 | `CreateGateway(ns, name)` | Create Istio Gateway with cleanup |
 | `CreateRuleSet(ns, name, configMapNames)` | Create RuleSet with cleanup |

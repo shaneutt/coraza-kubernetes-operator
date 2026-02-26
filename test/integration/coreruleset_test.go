@@ -35,10 +35,10 @@ import (
 //
 // Related: https://github.com/networking-incubator/coraza-kubernetes-operator/issues/12
 func TestCoreRulesetCompatibility(t *testing.T) {
+	t.Parallel()
 	s := fw.NewScenario(t)
 
-	ns := "crs-compat-test"
-	s.CreateNamespace(ns)
+	ns := s.GenerateNamespace("crs-compat")
 
 	// -------------------------------------------------------------------------
 	// Step 1: Set up a Gateway for this test
