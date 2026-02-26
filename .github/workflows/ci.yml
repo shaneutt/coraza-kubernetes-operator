@@ -97,6 +97,56 @@ jobs:
           name: coverage-report
           path: coverage.out
 
+  ftw-tests:
+    name: FTW tests
+    runs-on: ubuntu-latest
+    continue-on-error: true # not yet enforced. TODO: https://github.com/networking-incubator/coraza-kubernetes-operator/issues/96
+    steps:
+      - name: checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          submodules: "recursive"
+
+      - name: set up go
+        uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
+        with:
+          go-version-file: "go.mod"
+
+      - name: set up python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # 6.2.0
+        with:
+          python-version: "3.x"
+      
+      - name: setup python dependencies
+        run: pip install PyYAML
+
+      - name: install kubectl
+        uses: azure/setup-kubectl@776406bce94f63e41d621b960d78ee25c8b76ede # v4.0.1
+        with:
+          version: "latest"
+
+      - name: install helm
+        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+        with:
+          version: "latest"
+
+      - name: install kind
+        run: go install sigs.k8s.io/kind@a323333ff9efd8099f95a8a6b5c86c75a210d00f # v0.31.0
+      
+      - name: setup environment
+        run: make ftw.environment ftw.coreruleset
+        env:
+          KIND_CLUSTER_NAME: coraza-kubernetes-operator-integration
+
+      - name: run FTW tests
+        run: |
+          make ftw.run
+          cat ftwreport.log >> $GITHUB_STEP_SUMMARY
+        env:
+          KIND_CLUSTER_NAME: coraza-kubernetes-operator-integration
+          FTW_OUTPUT_FORMAT: github
+          FTW_EXTRA_ARGS: --output-log ftwreport.log
+
   integration-tests:
     name: integration tests
     runs-on: ubuntu-latest
