@@ -121,8 +121,11 @@ jobs:
       - name: run FTW tests
         run: |
           make ftw.run
+          cat ftwreport.log >> $GITHUB_STEP_SUMMARY
         env:
           KIND_CLUSTER_NAME: coraza-kubernetes-operator-integration
+          FTW_OUTPUT_FORMAT: github
+          FTW_EXTRA_ARGS: --output-log ftwreport.log
 
   integration-tests:
     name: integration tests

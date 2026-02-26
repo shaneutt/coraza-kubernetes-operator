@@ -67,4 +67,7 @@ testoverride:
     '922130-1': 'match_regex, likely different error message. To be investigated'
     '922130-2': 'match_regex, likely different error message. To be investigated'
     '922130-7': 'match_regex, likely different error message. To be investigated'
+    '980170-1': 'using retry_once, that is failing on our environment'
+    '980170-2': 'using retry_once, that is failing on our environment'
+    '980170-3': 'using retry_once, that is failing on our environment'
 
