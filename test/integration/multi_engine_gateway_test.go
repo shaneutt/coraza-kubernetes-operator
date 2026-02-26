@@ -109,6 +109,10 @@ func TestMultiEngineMultiGateway(t *testing.T) {
 		s.CreateRuleSet(ns, "ruleset-a", []string{"base-rules", "rules-a"})
 		s.CreateRuleSet(ns, "ruleset-b", []string{"base-rules", "rules-b"})
 
+		s.Step("deploy echo backend")
+		s.CreateEchoBackend(ns, "echo")
+		s.CreateHTTPRoute(ns, "echo-route", "target-gw", "echo")
+
 		s.Step("attach both engines to the gateway")
 		// The operator currently accepts multiple engines targeting the
 		// same gateway — there is no admission webhook preventing it.
@@ -131,6 +135,7 @@ func TestMultiEngineMultiGateway(t *testing.T) {
 		gw := s.ProxyToGateway(ns, "target-gw")
 		gw.ExpectBlocked("/?test=attackA")
 		gw.ExpectBlocked("/?test=attackB")
+		gw.ExpectAllowed("/?test=safe")
 	})
 
 	// -------------------------------------------------------------------------
