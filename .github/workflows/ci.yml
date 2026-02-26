@@ -57,15 +57,15 @@ jobs:
         with:
           fetch-depth: 0
       - name: set up python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # 6.2.0
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: "3.x"
-      - name: Set up Helm
+      - name: set up helm
         uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
-      - name: Set up chart-testing
+      - name: set up chart-testing
         uses: helm/chart-testing-action@6ec842c01de15ebb84c8627d2744a0c2f2755c9f # v2.8.0
-      - name: Run chart-testing (lint)
-        run: ct lint --config .ct.yaml
+      - name: run chart-testing (lint)
+        run: ct lint --config .ct.yaml --all
 
   unit-tests:
     name: unit tests
@@ -113,7 +113,7 @@ jobs:
           go-version-file: "go.mod"
 
       - name: set up python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # 6.2.0
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: "3.x"
 
