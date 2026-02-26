@@ -79,8 +79,7 @@ jobs:
   ftw-tests:
     name: FTW tests
     runs-on: ubuntu-latest
-    continue-on-error: true # Do not stop everything, just make it pass
-    # needs: [lint]
+    continue-on-error: true # Allow pipeline to continue even if FTW tests fail (non-blocking)
     steps:
       - name: checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2

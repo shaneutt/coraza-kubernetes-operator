@@ -1,4 +1,4 @@
-# The overrides for logs and IP is set during FTW execution
+# The overrides for logs and IP are set during FTW execution
 ---
 maxmarkerretries: 10
 testoverride:
