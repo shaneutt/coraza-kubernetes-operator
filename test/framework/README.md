@@ -11,7 +11,7 @@ The framework has three layers:
 - **Framework** - connects to the cluster (kind or generic kubeconfig).
   One instance per test suite, created in `TestMain`.
 - **Scenario** - manages a single test's lifecycle: namespace creation,
-  resource creation, and cleanup (all in reverse order on `defer`).
+  resource creation, and cleanup (all in reverse order via `t.Cleanup`).
 - **GatewayProxy** - port-forwards to a Gateway pod and provides HTTP
   assertion helpers for verifying WAF behavior.
 
