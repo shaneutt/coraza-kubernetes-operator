@@ -183,6 +183,7 @@ func (g *GatewayProxy) maintain(ctx context.Context) {
 		default:
 		}
 
+		start := time.Now()
 		err := g.runPortForward(ctx)
 		if ctx.Err() != nil {
 			return
@@ -190,6 +191,10 @@ func (g *GatewayProxy) maintain(ctx context.Context) {
 		if err != nil {
 			g.logf("port-forward %s/%s restarting (backoff %s): %v",
 				g.namespace, g.gateway, backoff, err)
+		}
+
+		if time.Since(start) > maxBackoff {
+			backoff = time.Second
 		}
 
 		select {
