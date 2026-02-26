@@ -233,7 +233,7 @@ ftw.coreruleset:
 	$(MAKE) CORERULESET_EXTRA_FLAGS="--include-test-rule --ignore-pmFromFile" NAMESPACE=$(FTW_NAMESPACE) coraza.coreruleset
 
 .PHONY: ftw.run
-ftw.run:
+ftw.run: coraza.coreruleset.download
 	# Give some time for loads to be properly loaded by the Gateway
 	sleep 10
 	$(KIND) get kubeconfig --name $(KIND_CLUSTER_NAME) > $(shell pwd)/tmp/kubeconfig

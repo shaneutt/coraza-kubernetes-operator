@@ -25,12 +25,13 @@ class KubeHelper:
         """
         Execute kubectl command with the configured namespace and kubeconfig.
 
-        Args:
-            *args: kubectl command arguments
-            **kwargs: Additional arguments passed to subprocess.run
-
+            *args: kubectl command arguments.
+            capture_output (bool): Whether to capture stdout/stderr (passed to subprocess.run).
+            text (bool): Whether to decode output as text (passed to subprocess.run).
+            check (bool): Whether to raise CalledProcessError on non-zero exit (passed to subprocess.run).
         Returns:
-            subprocess.CompletedProcess: Result of the kubectl command
+            subprocess.CompletedProcess: Result of the kubectl command.
+
         """
         cmd = [
             "kubectl",
@@ -199,23 +200,6 @@ def main():
 
     args = parser.parse_args()
 
-    # Validate that no argument is empty
-    if not args.namespace:
-        print("Error: namespace cannot be empty", file=sys.stderr)
-        sys.exit(1)
-    if not args.gateway:
-        print("Error: gateway cannot be empty", file=sys.stderr)
-        sys.exit(1)
-    if not args.config_file:
-        print("Error: config-file cannot be empty", file=sys.stderr)
-        sys.exit(1)
-    if not args.rules_directory:
-        print("Error: rules-directory cannot be empty", file=sys.stderr)
-        sys.exit(1)
-    if not args.kubeconfig:
-        print("Error: kubeconfig cannot be empty", file=sys.stderr)
-        sys.exit(1)
-
     # Initialize Kubernetes helper
     kube = KubeHelper(args.namespace, args.kubeconfig)
 
@@ -284,12 +268,40 @@ def main():
         )
         log_thread.start()
 
-        # Give log streaming a moment to start
-        time.sleep(1)
+        # Wait for log streaming to start with a readiness check and configurable timeout
+        log_start_timeout = float(os.getenv("FTW_LOG_START_TIMEOUT_SECONDS", "5"))
+        log_start_deadline = time.time() + log_start_timeout
+        while time.time() < log_start_deadline:
+            try:
+                if os.path.exists(log_filename) and os.path.getsize(log_filename) > 0:
+                    break
+            except OSError:
+                # File may not be ready yet; ignore and retry
+                pass
+            time.sleep(0.1)
+        if not os.path.exists(log_filename) or os.path.getsize(log_filename) == 0:
+            print(
+                f"Warning: log file {log_filename} not initialized after {log_start_timeout} seconds; "
+                "continuing without confirmed log streaming.",
+                file=sys.stderr,
+            )
 
         # Load and modify the config file to add runtime overrides
-        with open(args.config_file, 'r') as f:
-            config = yaml.safe_load(f) or {}
+        try:
+            with open(args.config_file, 'r') as f:
+                config = yaml.safe_load(f) or {}
+        except FileNotFoundError:
+            print(f"ERROR: Config file not found: {args.config_file}", file=sys.stderr)
+            sys.exit(1)
+        except PermissionError:
+            print(f"ERROR: Permission denied reading config file: {args.config_file}", file=sys.stderr)
+            sys.exit(1)
+        except yaml.YAMLError as e:
+            print(f"ERROR: Invalid YAML in config file {args.config_file}: {e}", file=sys.stderr)
+            sys.exit(1)
+        except Exception as e:
+            print(f"ERROR: Failed to load config file {args.config_file}: {e}", file=sys.stderr)
+            sys.exit(1)
 
         # Add input settings under testoverride
         if 'testoverride' not in config:
@@ -301,10 +313,20 @@ def main():
         config['testoverride']['input']['port'] = target_port
 
         # Write modified config to a temporary file
-        modified_config_file = tempfile.NamedTemporaryFile(mode='w', prefix='ftw_config_', suffix='.yaml', delete=False)
-        yaml.dump(config, modified_config_file)
-        modified_config_filename = modified_config_file.name
-        modified_config_file.close()
+        try:
+            modified_config_file = tempfile.NamedTemporaryFile(mode='w', prefix='ftw_config_', suffix='.yaml', delete=False)
+            yaml.dump(config, modified_config_file)
+            modified_config_filename = modified_config_file.name
+            modified_config_file.close()
+        except PermissionError as e:
+            print(f"ERROR: Permission denied creating temporary config file: {e}", file=sys.stderr)
+            sys.exit(1)
+        except yaml.YAMLError as e:
+            print(f"ERROR: Failed to serialize config to YAML: {e}", file=sys.stderr)
+            sys.exit(1)
+        except Exception as e:
+            print(f"ERROR: Failed to create modified config file: {e}", file=sys.stderr)
+            sys.exit(1)
 
         # Run FTW tests
         print("\n" + "="*60)
@@ -312,7 +334,7 @@ def main():
         print("="*60 + "\n")
 
         # Get the directory where this script is located
-        script_dir = sys.path[0] if sys.path[0] else "."
+        script_dir = os.path.dirname(os.path.abspath(__file__))
 
         ftw_cmd = [
             "go", "run",
@@ -322,14 +344,14 @@ def main():
             "-d", args.rules_directory,
             "--config", modified_config_filename,
             "--log-file", log_filename,
-            "--read-timeout", "10s", "--output", "github"
+            "--read-timeout", "10s"
         ]
 
         if args.output_log:
-            ftw_cmd += "-f", args.output_log
+            ftw_cmd += ["-f", args.output_log]
         
         if args.output_format:
-            ftw_cmd += "--output", args.output_format
+            ftw_cmd += ["--output", args.output_format]
 
         print(f"Configuration:")
         print(f"  Target: {target_host}:{target_port}")
