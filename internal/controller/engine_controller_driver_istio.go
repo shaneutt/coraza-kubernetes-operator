@@ -21,7 +21,9 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -74,8 +76,15 @@ func (r *EngineReconciler) provisionIstioEngineWithWasm(ctx context.Context, log
 	}
 	logInfo(log, req, "Engine", "WasmPlugin provisioned", "wasmNamespace", wasmPlugin.GetNamespace(), "wasmName", wasmPlugin.GetName())
 
+	logDebug(log, req, "Engine", "Counting matched Gateways")
+	matchedGateways, err := r.countMatchedGateways(ctx, log, req, engine.Namespace, engine.Spec.Driver.Istio.Wasm.WorkloadSelector)
+	if err != nil {
+		logError(log, req, "Engine", err, "Failed to count matched Gateways, defaulting to 0")
+	}
+
 	logDebug(log, req, "Engine", "Updating status after successful provisioning")
 	patch := client.MergeFrom(engine.DeepCopy())
+	engine.Status.MatchedGateways = matchedGateways
 	setStatusReady(log, req, "Engine", &engine.Status.Conditions, engine.Generation, "Configured", "WasmPlugin successfully created/updated")
 	if err := r.Status().Patch(ctx, &engine, patch); err != nil {
 		logError(log, req, "Engine", err, "Failed to patch status")
@@ -84,6 +93,54 @@ func (r *EngineReconciler) provisionIstioEngineWithWasm(ctx context.Context, log
 	r.Recorder.Eventf(&engine, nil, "Normal", "WasmPluginCreated", "Provision", "Created WasmPlugin %s/%s", wasmPlugin.GetNamespace(), wasmPlugin.GetName())
 
 	return ctrl.Result{}, nil
+}
+
+// -----------------------------------------------------------------------------
+// Engine Controller - Istio Driver - Gateway Matching
+// -----------------------------------------------------------------------------
+
+// gatewayNameLabel is the standard Kubernetes Gateway API label that Istio
+// applies to Gateway pods. It is used to match Gateways against the Engine's
+// workloadSelector.
+const gatewayNameLabel = "gateway.networking.k8s.io/gateway-name"
+
+// countMatchedGateways lists Gateway resources in the namespace and counts how
+// many would be matched by the given workloadSelector. Matching is based on the
+// standard convention where Istio labels Gateway pods with
+// "gateway.networking.k8s.io/gateway-name: <gateway-name>".
+func (r *EngineReconciler) countMatchedGateways(ctx context.Context, log logr.Logger, req ctrl.Request, namespace string, selector *metav1.LabelSelector) (int32, error) {
+	if selector == nil {
+		return 0, nil
+	}
+
+	sel, err := metav1.LabelSelectorAsSelector(selector)
+	if err != nil {
+		return 0, fmt.Errorf("invalid workloadSelector: %w", err)
+	}
+
+	gatewayList := &unstructured.UnstructuredList{}
+	gatewayList.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "gateway.networking.k8s.io",
+		Version: "v1",
+		Kind:    "GatewayList",
+	})
+
+	if err := r.List(ctx, gatewayList, client.InNamespace(namespace)); err != nil {
+		return 0, fmt.Errorf("listing Gateways: %w", err)
+	}
+
+	var count int32
+	for _, gw := range gatewayList.Items {
+		podLabels := labels.Set{
+			gatewayNameLabel: gw.GetName(),
+		}
+		if sel.Matches(podLabels) {
+			count++
+			logDebug(log, req, "Engine", "Gateway matched", "gateway", gw.GetName())
+		}
+	}
+
+	return count, nil
 }
 
 // -----------------------------------------------------------------------------
@@ -102,6 +159,11 @@ func (r *EngineReconciler) buildWasmPlugin(engine *wafv1alpha1.Engine) *unstruct
 		pluginConfig["rule_reload_interval_seconds"] = engine.Spec.Driver.Istio.Wasm.RuleSetCacheServer.PollIntervalSeconds
 	}
 
+	matchLabels := engine.Spec.Driver.Istio.Wasm.WorkloadSelector.MatchLabels
+	if matchLabels == nil {
+		matchLabels = map[string]string{}
+	}
+
 	wasmPlugin := &unstructured.Unstructured{
 		Object: map[string]any{
 			"apiVersion": "extensions.istio.io/v1alpha1",
@@ -114,7 +176,7 @@ func (r *EngineReconciler) buildWasmPlugin(engine *wafv1alpha1.Engine) *unstruct
 				"url":          engine.Spec.Driver.Istio.Wasm.Image,
 				"pluginConfig": pluginConfig,
 				"selector": map[string]any{
-					"matchLabels": engine.Spec.Driver.Istio.Wasm.WorkloadSelector.MatchLabels,
+					"matchLabels": matchLabels,
 				},
 			},
 		},

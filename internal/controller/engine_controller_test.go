@@ -23,6 +23,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 
@@ -137,6 +139,113 @@ func TestEngineReconciler_ReconcileIstioDriver(t *testing.T) {
 	assert.Equal(t, "Ready", condition.Type)
 	assert.Equal(t, metav1.ConditionTrue, condition.Status)
 	assert.Equal(t, "Configured", condition.Reason)
+	assert.Equal(t, int32(0), updated.Status.MatchedGateways, "No Gateways exist, count should be 0")
+}
+
+func TestEngineReconciler_MatchedGateways(t *testing.T) {
+	ctx := context.Background()
+	ns := testNamespace
+
+	reconciler := &EngineReconciler{
+		Client:                    k8sClient,
+		Scheme:                    scheme,
+		Recorder:                  utils.NewTestRecorder(),
+		ruleSetCacheServerCluster: "test-cluster",
+	}
+
+	t.Log("Creating Engine with workloadSelector targeting two gateway names")
+	gatewayNames := []string{"match-gw-1", "match-gw-2"}
+	engine := utils.NewTestEngine(utils.EngineOptions{
+		Name:      "test-engine-gw-count",
+		Namespace: ns,
+	})
+	engine.Spec.Driver.Istio.Wasm.WorkloadSelector = &metav1.LabelSelector{
+		MatchLabels: map[string]string{},
+		MatchExpressions: []metav1.LabelSelectorRequirement{
+			{
+				Key:      "gateway.networking.k8s.io/gateway-name",
+				Operator: metav1.LabelSelectorOpIn,
+				Values:   gatewayNames,
+			},
+		},
+	}
+	require.NoError(t, k8sClient.Create(ctx, engine))
+	t.Cleanup(func() {
+		if err := k8sClient.Delete(ctx, engine); err != nil {
+			t.Logf("Failed to delete engine: %v", err)
+		}
+	})
+
+	reconcileAndGetCount := func(t *testing.T) int32 {
+		t.Helper()
+		result, err := reconciler.Reconcile(ctx, ctrl.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      engine.Name,
+				Namespace: engine.Namespace,
+			},
+		})
+		require.NoError(t, err)
+		assert.False(t, result.Requeue)
+
+		var updated wafv1alpha1.Engine
+		require.NoError(t, k8sClient.Get(ctx, types.NamespacedName{
+			Name:      engine.Name,
+			Namespace: engine.Namespace,
+		}, &updated))
+		return updated.Status.MatchedGateways
+	}
+
+	createGateway := func(t *testing.T, name string) *unstructured.Unstructured {
+		t.Helper()
+		gw := &unstructured.Unstructured{
+			Object: map[string]any{
+				"apiVersion": "gateway.networking.k8s.io/v1",
+				"kind":       "Gateway",
+				"metadata": map[string]any{
+					"name":      name,
+					"namespace": ns,
+				},
+				"spec": map[string]any{
+					"gatewayClassName": "istio",
+					"listeners": []any{
+						map[string]any{
+							"name":     "http",
+							"port":     int64(80),
+							"protocol": "HTTP",
+						},
+					},
+				},
+			},
+		}
+		gw.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   "gateway.networking.k8s.io",
+			Version: "v1",
+			Kind:    "Gateway",
+		})
+		require.NoError(t, k8sClient.Create(ctx, gw))
+		return gw
+	}
+
+	t.Log("No Gateways exist yet - count should be 0")
+	assert.Equal(t, int32(0), reconcileAndGetCount(t), "No Gateways exist")
+
+	t.Log("Creating first matching Gateway")
+	gw1 := createGateway(t, "match-gw-1")
+	t.Cleanup(func() {
+		if err := k8sClient.Delete(ctx, gw1); err != nil {
+			t.Logf("Failed to delete gateway: %v", err)
+		}
+	})
+	assert.Equal(t, int32(1), reconcileAndGetCount(t), "One Gateway matches")
+
+	t.Log("Creating second matching Gateway")
+	gw2 := createGateway(t, "match-gw-2")
+	t.Cleanup(func() {
+		if err := k8sClient.Delete(ctx, gw2); err != nil {
+			t.Logf("Failed to delete gateway: %v", err)
+		}
+	})
+	assert.Equal(t, int32(2), reconcileAndGetCount(t), "Two Gateways match")
 }
 
 func TestEngineReconciler_StatusUpdateHandling(t *testing.T) {

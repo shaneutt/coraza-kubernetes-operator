@@ -24,6 +24,9 @@ spec:
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
       type: string
+    - jsonPath: .status.matchedGateways
+      name: Gateways
+      type: integer
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -282,6 +285,12 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              matchedGateways:
+                description: |-
+                  MatchedGateways is the number of Gateway resources whose pods match the
+                  Engine's workloadSelector.
+                format: int32
+                type: integer
             type: object
         required:
         - spec

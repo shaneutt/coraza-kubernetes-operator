@@ -48,6 +48,7 @@ func init() {
 // +kubebuilder:printcolumn:name="RuleSet",type=string,JSONPath=`.spec.ruleSet.name`
 // +kubebuilder:printcolumn:name="Failure Policy",type=string,JSONPath=`.spec.failurePolicy`
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
+// +kubebuilder:printcolumn:name="Gateways",type=integer,JSONPath=`.status.matchedGateways`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 type Engine struct {
 	metav1.TypeMeta `json:",inline"`
@@ -144,6 +145,12 @@ type EngineStatus struct {
 	// +patchMergeKey=type
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
+
+	// MatchedGateways is the number of Gateway resources whose pods match the
+	// Engine's workloadSelector.
+	//
+	// +optional
+	MatchedGateways int32 `json:"matchedGateways"`
 }
 
 // -----------------------------------------------------------------------------

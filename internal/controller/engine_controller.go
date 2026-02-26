@@ -27,12 +27,14 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/events"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
@@ -46,6 +48,7 @@ import (
 // +kubebuilder:rbac:groups=waf.k8s.coraza.io,resources=engines,verbs=get;list;watch;patch;update
 // +kubebuilder:rbac:groups=waf.k8s.coraza.io,resources=engines/finalizers,verbs=update
 // +kubebuilder:rbac:groups=waf.k8s.coraza.io,resources=engines/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=gateways,verbs=list;watch
 
 // -----------------------------------------------------------------------------
 // Engine Controller
@@ -69,9 +72,17 @@ func (r *EngineReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Kind:    "WasmPlugin",
 	})
 
+	gateway := &unstructured.Unstructured{}
+	gateway.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "gateway.networking.k8s.io",
+		Version: "v1",
+		Kind:    "Gateway",
+	})
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&wafv1alpha1.Engine{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Owns(wasmPlugin).
+		Watches(gateway, handler.EnqueueRequestsFromMapFunc(r.findEnginesForGateway)).
 		WithOptions(controller.Options{
 			RateLimiter: workqueue.NewTypedItemExponentialFailureRateLimiter[ctrl.Request](
 				1*time.Second,
@@ -80,6 +91,28 @@ func (r *EngineReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		}).
 		Named("engine").
 		Complete(r)
+}
+
+// findEnginesForGateway maps a Gateway event to reconcile requests for all
+// Engines in the same namespace, so their matched Gateway count stays current.
+func (r *EngineReconciler) findEnginesForGateway(ctx context.Context, obj client.Object) []ctrl.Request {
+	engines := &wafv1alpha1.EngineList{}
+	if err := r.List(ctx, engines, client.InNamespace(obj.GetNamespace())); err != nil {
+		logf.FromContext(ctx).Error(err, "Engine: Failed to list Engines for Gateway mapping",
+			"gatewayNamespace", obj.GetNamespace(), "gatewayName", obj.GetName())
+		return nil
+	}
+
+	requests := make([]ctrl.Request, 0, len(engines.Items))
+	for _, engine := range engines.Items {
+		requests = append(requests, ctrl.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      engine.Name,
+				Namespace: engine.Namespace,
+			},
+		})
+	}
+	return requests
 }
 
 // -----------------------------------------------------------------------------
