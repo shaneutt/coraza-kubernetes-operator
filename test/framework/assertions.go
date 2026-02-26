@@ -22,6 +22,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -104,7 +105,7 @@ func (s *Scenario) ExpectResourceGone(namespace, name string, gvr schema.GroupVe
 		_, err := s.F.DynamicClient.Resource(gvr).Namespace(namespace).Get(
 			s.T.Context(), name, metav1.GetOptions{},
 		)
-		return err != nil
+		return apierrors.IsNotFound(err)
 	}, DefaultTimeout, DefaultInterval,
 		"%s %s/%s should not exist", gvr.Resource, namespace, name,
 	)
