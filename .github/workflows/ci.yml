@@ -108,9 +108,14 @@ jobs:
 
       - name: install kind
         run: go install sigs.k8s.io/kind@a323333ff9efd8099f95a8a6b5c86c75a210d00f # v0.31.0
+      
+      - name: setup environment
+        run: make ftw.environment ftw.coreruleset
+        env:
+          KIND_CLUSTER_NAME: coraza-kubernetes-operator-integration
 
       - name: run FTW tests
-        run: make ftw
+        run: make ftw.run
         env:
           KIND_CLUSTER_NAME: coraza-kubernetes-operator-integration
           FTW_OUTPUT_FORMAT: github

@@ -7,7 +7,8 @@ import os
 import threading
 import time
 import socket
-import requests
+import urllib.request
+import urllib.error
 import tempfile
 import yaml
 from contextlib import closing
@@ -165,10 +166,11 @@ def test_connectivity(host, port, max_retries=30, retry_delay=1):
     for attempt in range(max_retries):
         try:
             # Try to make a simple HTTP request
-            response = requests.get(url, timeout=2)
-            print(f"Connectivity test successful: {url} (status: {response.status_code})")
-            return True
-        except requests.exceptions.ConnectionError:
+            with urllib.request.urlopen(url, timeout=2) as response:
+                status_code = response.getcode()
+                print(f"Connectivity test successful: {url} (status: {status_code})")
+                return True
+        except (urllib.error.URLError, OSError) as e:
             if attempt < max_retries - 1:
                 print(f"Connection attempt {attempt + 1}/{max_retries} failed, retrying in {retry_delay}s...")
                 time.sleep(retry_delay)
@@ -343,10 +345,10 @@ def main():
         print("="*60)
 
         # Clean up modified config file
-        #try:
-        #    os.unlink(modified_config_filename)
-        #except Exception:
-        #    pass
+        try:
+            os.unlink(modified_config_filename)
+        except Exception:
+            pass
 
         sys.exit(ftw_result.returncode)
 
