@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -35,21 +36,18 @@ import (
 // On timeout, the failure message includes the last-observed conditions.
 func (s *Scenario) ExpectCondition(namespace, name string, gvr schema.GroupVersionResource, condType, status string) {
 	s.T.Helper()
-	var lastObserved string
-	require.Eventually(s.T, func() bool {
+	require.EventuallyWithT(s.T, func(collect *assert.CollectT) {
 		obj, err := s.F.DynamicClient.Resource(gvr).Namespace(namespace).Get(
 			s.T.Context(), name, metav1.GetOptions{},
 		)
-		if err != nil {
-			lastObserved = fmt.Sprintf("error: %v", err)
-			return false
+		if !assert.NoError(collect, err, "get %s %s/%s", gvr.Resource, namespace, name) {
+			return
 		}
-		lastObserved = formatConditions(obj)
-		return hasCondition(obj, condType, status)
-	}, DefaultTimeout, DefaultInterval,
-		"%s %s/%s: expected condition %s=%s, last observed: [%s]",
-		gvr.Resource, namespace, name, condType, status, lastObserved,
-	)
+		assert.True(collect, hasCondition(obj, condType, status),
+			"%s %s/%s: expected condition %s=%s, got: [%s]",
+			gvr.Resource, namespace, name, condType, status, formatConditions(obj),
+		)
+	}, DefaultTimeout, DefaultInterval)
 }
 
 // ExpectEngineReady polls until the Engine has condition Ready=True.

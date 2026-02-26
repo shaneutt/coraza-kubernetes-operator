@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/portforward"
@@ -115,41 +116,35 @@ func (g *GatewayProxy) ExpectBlocked(path string) {
 // configured, 200 when a backend exists).
 func (g *GatewayProxy) ExpectAllowed(path string) {
 	g.s.T.Helper()
-	var lastStatus string
-	require.Eventually(g.s.T, func() bool {
+	require.EventuallyWithT(g.s.T, func(collect *assert.CollectT) {
 		resp, err := g.httpc.Get(g.URL(path))
-		if err != nil {
-			lastStatus = fmt.Sprintf("error: %v", err)
-			return false
+		if !assert.NoError(collect, err) {
+			return
 		}
 		defer func() {
 			_, _ = io.ReadAll(resp.Body)
 			_ = resp.Body.Close()
 		}()
-		lastStatus = fmt.Sprintf("%d", resp.StatusCode)
-		return resp.StatusCode != http.StatusForbidden
-	}, DefaultTimeout, DefaultInterval,
-		"expected %s to not be blocked (not 403), last status: %s", path, lastStatus)
+		assert.NotEqual(collect, http.StatusForbidden, resp.StatusCode,
+			"expected %s to not be blocked (not 403), got: %d", path, resp.StatusCode)
+	}, DefaultTimeout, DefaultInterval)
 }
 
 // ExpectStatus polls until the given path returns the expected HTTP status.
 func (g *GatewayProxy) ExpectStatus(path string, code int) {
 	g.s.T.Helper()
-	var lastStatus string
-	require.Eventually(g.s.T, func() bool {
+	require.EventuallyWithT(g.s.T, func(collect *assert.CollectT) {
 		resp, err := g.httpc.Get(g.URL(path))
-		if err != nil {
-			lastStatus = fmt.Sprintf("error: %v", err)
-			return false
+		if !assert.NoError(collect, err) {
+			return
 		}
 		defer func() {
 			_, _ = io.ReadAll(resp.Body)
 			_ = resp.Body.Close()
 		}()
-		lastStatus = fmt.Sprintf("%d", resp.StatusCode)
-		return resp.StatusCode == code
-	}, DefaultTimeout, DefaultInterval,
-		"expected %s to return %d, last status: %s", path, code, lastStatus)
+		assert.Equal(collect, code, resp.StatusCode,
+			"expected %s to return %d, got: %d", path, code, resp.StatusCode)
+	}, DefaultTimeout, DefaultInterval)
 }
 
 // HTTPResult holds the result of an HTTP request.
