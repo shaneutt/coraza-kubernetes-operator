@@ -159,6 +159,14 @@ type HTTPResult struct {
 // Port Forward Management
 // -----------------------------------------------------------------------------
 
+// logf logs via t.Logf, recovering from the panic that occurs if the test
+// has already finished (Go 1.24+). The maintain goroutine may race with
+// test completion, so direct t.Logf calls are unsafe there.
+func (g *GatewayProxy) logf(format string, args ...interface{}) {
+	defer func() { recover() }() //nolint:errcheck
+	g.s.T.Logf(format, args...)
+}
+
 func (g *GatewayProxy) maintain(ctx context.Context) {
 	backoff := time.Second
 	const maxBackoff = 10 * time.Second
@@ -175,7 +183,7 @@ func (g *GatewayProxy) maintain(ctx context.Context) {
 			return
 		}
 		if err != nil {
-			g.s.T.Logf("port-forward %s/%s restarting (backoff %s): %v",
+			g.logf("port-forward %s/%s restarting (backoff %s): %v",
 				g.namespace, g.gateway, backoff, err)
 		}
 
