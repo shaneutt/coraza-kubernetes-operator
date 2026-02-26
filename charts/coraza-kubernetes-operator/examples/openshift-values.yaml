@@ -1,0 +1,9 @@
+openshift:
+  enabled: true
+
+metrics:
+  serviceMonitor:
+    enabled: true
+
+
+
