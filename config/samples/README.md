@@ -21,6 +21,9 @@ using the Kubernetes Gateway API and Istio.
 
 ## Deploy
 
+> **Note**: The samples can be deployed to any namespace you choose. The
+> entire sample set must all be deployed to a _single_ namespace however.
+
 ```bash
 kubectl apply -f config/samples/
 ```
