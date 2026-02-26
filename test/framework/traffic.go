@@ -235,10 +235,16 @@ func (g *GatewayProxy) runPortForward(ctx context.Context) error {
 	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, "POST", pfURL)
 
 	// Bridge context cancellation to the port-forwarder's stopCh.
+	// The done channel ensures the bridge goroutine exits when
+	// ForwardPorts returns, rather than leaking until ctx is cancelled.
 	stopCh := make(chan struct{})
+	done := make(chan struct{})
 	go func() {
-		<-ctx.Done()
-		close(stopCh)
+		select {
+		case <-ctx.Done():
+			close(stopCh)
+		case <-done:
+		}
 	}()
 
 	pf, err := portforward.New(dialer,
@@ -246,8 +252,11 @@ func (g *GatewayProxy) runPortForward(ctx context.Context) error {
 		stopCh, nil, io.Discard, io.Discard,
 	)
 	if err != nil {
+		close(done)
 		return fmt.Errorf("create port-forwarder: %w", err)
 	}
 
-	return pf.ForwardPorts()
+	err = pf.ForwardPorts()
+	close(done)
+	return err
 }
