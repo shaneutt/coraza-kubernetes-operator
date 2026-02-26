@@ -22,6 +22,7 @@ The framework has three layers:
 | `KIND_CLUSTER_NAME` | Connects to a kind cluster via `kind get kubeconfig` |
 | `KUBECONFIG` | Fallback: connects via standard kubeconfig |
 | `CORAZA_WASM_IMAGE` | Override the default WASM plugin OCI image |
+| `ARTIFACTS_DIR` | If set, write diagnostic dumps (YAML, logs, events) to this directory on test failure |
 
 ## Quick Start
 

@@ -124,33 +124,41 @@ func (g *GatewayProxy) ExpectBlocked(path string) {
 // configured, 200 when a backend exists).
 func (g *GatewayProxy) ExpectAllowed(path string) {
 	g.s.T.Helper()
+	var lastStatus string
 	require.Eventually(g.s.T, func() bool {
 		resp, err := g.httpc.Get(g.URL(path))
 		if err != nil {
+			lastStatus = fmt.Sprintf("error: %v", err)
 			return false
 		}
 		defer func() {
 			_, _ = io.ReadAll(resp.Body)
 			_ = resp.Body.Close()
 		}()
+		lastStatus = fmt.Sprintf("%d", resp.StatusCode)
 		return resp.StatusCode != http.StatusForbidden
-	}, DefaultTimeout, DefaultInterval, "expected %s to not be blocked (not 403)", path)
+	}, DefaultTimeout, DefaultInterval,
+		"expected %s to not be blocked (not 403), last status: %s", path, lastStatus)
 }
 
 // ExpectStatus polls until the given path returns the expected HTTP status.
 func (g *GatewayProxy) ExpectStatus(path string, code int) {
 	g.s.T.Helper()
+	var lastStatus string
 	require.Eventually(g.s.T, func() bool {
 		resp, err := g.httpc.Get(g.URL(path))
 		if err != nil {
+			lastStatus = fmt.Sprintf("error: %v", err)
 			return false
 		}
 		defer func() {
 			_, _ = io.ReadAll(resp.Body)
 			_ = resp.Body.Close()
 		}()
+		lastStatus = fmt.Sprintf("%d", resp.StatusCode)
 		return resp.StatusCode == code
-	}, DefaultTimeout, DefaultInterval, "expected %s to return %d", path, code)
+	}, DefaultTimeout, DefaultInterval,
+		"expected %s to return %d, last status: %s", path, code, lastStatus)
 }
 
 // HTTPResult holds the result of an HTTP request.

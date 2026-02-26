@@ -17,6 +17,9 @@ limitations under the License.
 package framework
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -29,18 +32,23 @@ import (
 
 // ExpectCondition polls until the named resource has the specified condition
 // type with the expected status value ("True", "False", or "Unknown").
+// On timeout, the failure message includes the last-observed conditions.
 func (s *Scenario) ExpectCondition(namespace, name string, gvr schema.GroupVersionResource, condType, status string) {
 	s.T.Helper()
+	var lastObserved string
 	require.Eventually(s.T, func() bool {
 		obj, err := s.F.DynamicClient.Resource(gvr).Namespace(namespace).Get(
 			s.T.Context(), name, metav1.GetOptions{},
 		)
 		if err != nil {
+			lastObserved = fmt.Sprintf("error: %v", err)
 			return false
 		}
+		lastObserved = formatConditions(obj)
 		return hasCondition(obj, condType, status)
 	}, DefaultTimeout, DefaultInterval,
-		"%s %s/%s: expected condition %s=%s", gvr.Resource, namespace, name, condType, status,
+		"%s %s/%s: expected condition %s=%s, last observed: [%s]",
+		gvr.Resource, namespace, name, condType, status, lastObserved,
 	)
 }
 
@@ -138,4 +146,23 @@ func hasCondition(obj *unstructured.Unstructured, condType, status string) bool 
 		}
 	}
 	return false
+}
+
+func formatConditions(obj *unstructured.Unstructured) string {
+	conditions, found, err := unstructured.NestedSlice(obj.Object, "status", "conditions")
+	if err != nil || !found {
+		return "no conditions"
+	}
+	parts := make([]string, 0, len(conditions))
+	for _, c := range conditions {
+		cond, ok := c.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		parts = append(parts, fmt.Sprintf("%s=%s", cond["type"], cond["status"]))
+	}
+	if len(parts) == 0 {
+		return "no conditions"
+	}
+	return strings.Join(parts, ", ")
 }

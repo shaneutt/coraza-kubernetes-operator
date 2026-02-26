@@ -20,6 +20,9 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -49,21 +52,27 @@ const (
 //	s.Step("do something")
 //	// ... test logic ...
 type Scenario struct {
-	T        *testing.T
-	F        *Framework
-	cleanups []func()
+	T          *testing.T
+	F          *Framework
+	cleanups   []func()
+	namespaces []string
 }
 
 // NewScenario creates a Scenario bound to the given test. Cleanup is
 // registered automatically via t.Cleanup and runs after the test (and
-// all its subtests) complete.
+// all its subtests) complete. On failure, diagnostic info is dumped
+// before cleanup runs.
 func (f *Framework) NewScenario(t *testing.T) *Scenario {
 	t.Helper()
 	s := &Scenario{
 		T: t,
 		F: f,
 	}
+	// t.Cleanup is LIFO: last registered runs first. Register resource
+	// cleanup first (runs last) then dump (runs first, while resources
+	// still exist).
 	t.Cleanup(s.Cleanup)
+	t.Cleanup(s.dumpOnFailure)
 	return s
 }
 
@@ -109,6 +118,7 @@ func (s *Scenario) CreateNamespace(name string) {
 	_, err := s.F.KubeClient.CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
 	require.NoError(s.T, err, "create namespace %s", name)
 
+	s.namespaces = append(s.namespaces, name)
 	s.T.Logf("Created namespace: %s", name)
 	s.OnCleanup(func() {
 		// Background: test context may already be cancelled; cleanup must still run.
@@ -131,4 +141,102 @@ func (s *Scenario) ApplyManifest(namespace, path string) {
 	s.OnCleanup(func() {
 		_ = s.F.Kubectl(namespace, "delete", "-f", path, "--ignore-not-found=true").Run()
 	})
+}
+
+// -----------------------------------------------------------------------------
+// Failure Diagnostics
+// -----------------------------------------------------------------------------
+
+// dumpOnFailure collects diagnostic information when the test has failed.
+// It runs as a t.Cleanup function before resource cleanup (LIFO ordering).
+func (s *Scenario) dumpOnFailure() {
+	if !s.T.Failed() {
+		return
+	}
+
+	for _, ns := range s.namespaces {
+		s.dumpNamespace(ns)
+	}
+}
+
+func (s *Scenario) dumpNamespace(ns string) {
+	s.T.Logf("=== DIAGNOSTIC DUMP for namespace %s ===", ns)
+
+	dumpCmds := []struct {
+		label string
+		args  []string
+	}{
+		{"engines", []string{"get", "engines.waf.k8s.coraza.io", "-o", "yaml"}},
+		{"rulesets", []string{"get", "rulesets.waf.k8s.coraza.io", "-o", "yaml"}},
+		{"wasmplugins", []string{"get", "wasmplugins.extensions.istio.io", "-o", "yaml"}},
+		{"events", []string{"get", "events", "--sort-by=.lastTimestamp"}},
+		{"pods", []string{"get", "pods", "-o", "wide"}},
+	}
+
+	for _, dc := range dumpCmds {
+		out, err := s.F.Kubectl(ns, dc.args...).CombinedOutput()
+		if err != nil {
+			s.T.Logf("[%s] error: %v", dc.label, err)
+			continue
+		}
+		s.T.Logf("[%s]\n%s", dc.label, string(out))
+	}
+
+	// Collect pod logs for gateway pods in this namespace.
+	pods, err := s.F.KubeClient.CoreV1().Pods(ns).List(
+		context.Background(), metav1.ListOptions{},
+	)
+	if err != nil {
+		s.T.Logf("[pod-logs] error listing pods: %v", err)
+	} else {
+		for _, pod := range pods.Items {
+			for _, c := range pod.Spec.Containers {
+				out, logErr := s.F.Kubectl(ns, "logs", pod.Name, "-c", c.Name,
+					"--tail=50").CombinedOutput()
+				if logErr != nil {
+					s.T.Logf("[pod-logs] %s/%s: error: %v", pod.Name, c.Name, logErr)
+					continue
+				}
+				s.T.Logf("[pod-logs] %s/%s:\n%s", pod.Name, c.Name, string(out))
+			}
+		}
+	}
+
+	s.writeArtifacts(ns)
+}
+
+func (s *Scenario) writeArtifacts(ns string) {
+	artifactsDir := os.Getenv("ARTIFACTS_DIR")
+	if artifactsDir == "" {
+		return
+	}
+
+	// Sanitize test name for filesystem use.
+	testName := strings.ReplaceAll(s.T.Name(), "/", "_")
+	dir := filepath.Join(artifactsDir, testName, ns)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		s.T.Logf("artifacts: failed to create dir %s: %v", dir, err)
+		return
+	}
+
+	artifacts := []struct {
+		filename string
+		args     []string
+	}{
+		{"engines.yaml", []string{"get", "engines.waf.k8s.coraza.io", "-o", "yaml"}},
+		{"rulesets.yaml", []string{"get", "rulesets.waf.k8s.coraza.io", "-o", "yaml"}},
+		{"wasmplugins.yaml", []string{"get", "wasmplugins.extensions.istio.io", "-o", "yaml"}},
+		{"events.txt", []string{"get", "events", "--sort-by=.lastTimestamp"}},
+		{"pods.txt", []string{"describe", "pods"}},
+	}
+
+	for _, a := range artifacts {
+		out, err := s.F.Kubectl(ns, a.args...).CombinedOutput()
+		if err != nil {
+			continue
+		}
+		_ = os.WriteFile(filepath.Join(dir, a.filename), out, 0o644)
+	}
+
+	s.T.Logf("artifacts written to %s", dir)
 }
