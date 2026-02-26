@@ -14,7 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package utils provides testing utilities for integration and unit tests.
+// Package utils provides typed resource builders for unit tests (internal/controller, internal/rulesets).
+// Integration tests use test/framework/resources.go which builds unstructured objects via the dynamic client.
 package utils
 
 import (

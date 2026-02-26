@@ -21,6 +21,7 @@ Cross-namespace references between Engine, RuleSet, and ConfigMap are explicitly
 - Controller changes must have envtest unit tests (`internal/controller/*_test.go`).
 - Cache changes must have unit tests (`internal/rulesets/cache/*_test.go`).
 - Integration tests run against a Kind cluster with Istio (`test/integration/`).
+- Integration tests must use the test framework in `test/framework/`. See `test/framework/README.md` for the API and conventions. Tests that bypass the framework (raw client calls, manual polling, hardcoded ports) should be refactored to use it.
 - `make test` runs unit tests. `make test.integration` runs integration tests. Both must pass.
 
 ## Common Pitfalls
