@@ -32,6 +32,48 @@ data:
     SecAuditLog /dev/stdout
     SecAuditLogFormat JSON
     SecAuditEngine RelevantOnly
+    SecRequestBodyLimit 131072
+    SecRequestBodyInMemoryLimit 131072
+    SecRequestBodyLimitAction Reject
+    SecRule REQUEST_HEADERS:Content-Type "^(?:application(?:/soap\\+|/)|text/)xml" \\
+     "id:200000,\\
+     phase:1,\\
+     t:none,t:lowercase,\\
+     pass,\\
+     nolog,\\
+     ctl:requestBodyProcessor=XML"
+    SecRule REQUEST_HEADERS:Content-Type "^application/json" \\
+     "id:200001,\\
+     phase:1,\\
+     t:none,t:lowercase,\\
+     pass,\\
+     nolog,\\
+     ctl:requestBodyProcessor=JSON"
+    SecRule REQUEST_HEADERS:Content-Type "^application/[a-z0-9.-]+[+]json" \\
+     "id:200006,\\
+     phase:1,\\
+     t:none,t:lowercase,\\
+     pass,\\
+     nolog,\\
+     ctl:requestBodyProcessor=JSON"
+    SecRule REQBODY_ERROR "!@eq 0" \\
+     "id:200002,\\
+     phase:2,\\
+     t:none,\\
+     log,\\
+     deny,\\
+     status:400,\\
+     msg:'Failed to parse request body.',\\
+     logdata:'%{reqbody_error_msg}',\\
+     severity:2"
+    SecRule MULTIPART_STRICT_ERROR "!@eq 0" \\
+     "id:200003,\\
+     phase:2,\\
+     t:none,\\
+     log,\\
+     deny,\\
+     status:400,\\
+     msg:'Multipart request body failed strict validation.'"
     SecDefaultAction "phase:2,log,auditlog,deny,status:403"
     SecAction \\
      "id:900990,\\
