@@ -40,7 +40,7 @@ all: build
 
 .PHONY: build
 build: manifests generate fmt vet lint
-	go build -o bin/manager cmd/main.go
+	go build -o bin/manager cmd/main.go -tags no_fs_access
 
 .PHONY: build.image
 build.image:
