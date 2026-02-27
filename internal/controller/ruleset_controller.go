@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"strings"
 	"time"
@@ -38,6 +39,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	wafv1alpha1 "github.com/networking-incubator/coraza-kubernetes-operator/api/v1alpha1"
+	"github.com/networking-incubator/coraza-kubernetes-operator/internal/rulesets"
 	"github.com/networking-incubator/coraza-kubernetes-operator/internal/rulesets/cache"
 )
 
@@ -152,6 +154,22 @@ func (r *RuleSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			}
 
 			return ctrl.Result{}, err
+		}
+
+		if cm.Annotations["coraza.io/validation"] != "false" {
+			if errs := rulesets.Validate(data); errs != nil {
+				err := stderrors.Join(errs...)
+
+				patch := client.MergeFrom(ruleset.DeepCopy())
+				msg := fmt.Sprintf("ConfigMap %s doesn't contain valid rules:\n%v", rule.Name, err)
+				r.Recorder.Eventf(&ruleset, nil, "Warning", "InvalidConfigMap", "Reconcile", msg)
+				setStatusConditionDegraded(log, req, "RuleSet", &ruleset.Status.Conditions, ruleset.Generation, "InvalidConfigMap", msg)
+				if updateErr := r.Status().Patch(ctx, &ruleset, patch); updateErr != nil {
+					logError(log, req, "RuleSet", updateErr, "Failed to patch status")
+				}
+
+				return ctrl.Result{}, err
+			}
 		}
 
 		aggregatedRules.WriteString(data)
