@@ -25,10 +25,10 @@ jobs:
           go-version-file: "go.mod"
 
       - name: build and generate manifests
-        run: make manifests generate
+        run: make manifests generate helm.sync
 
       - name: check for uncommitted changes
-        run: git diff --exit-code || (echo "generated files have uncommitted changes. run 'make manifests generate' and commit the results." && exit 1)
+        run: git diff --exit-code || (echo "generated files have uncommitted changes. run 'make manifests generate helm.sync' and commit the results." && exit 1)
 
   lint:
     name: lint
