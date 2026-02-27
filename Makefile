@@ -173,6 +173,10 @@ test.integration:
 	go clean -testcache
 	KIND_CLUSTER_NAME=${KIND_CLUSTER_NAME} ISTIO_VERSION=${ISTIO_VERSION} go test -tags=integration ./test/integration/... -v
 
+.PHONY: test.tools
+test.tools:
+	cd tools/cmd/github_issue_manager && go test -v ./...
+
 
 # -------------------------------------------------------------------------------
 # Coraza Coreruleset targets

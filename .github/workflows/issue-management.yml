@@ -1,0 +1,49 @@
+name: Issue Management
+
+permissions: read-all
+
+on:
+  issues:
+    types:
+      [opened, reopened, edited, labeled, unlabeled, milestoned, demilestoned]
+
+jobs:
+  manage:
+    runs-on: ubuntu-latest
+    if: ${{ !github.event.issue.pull_request }}
+    permissions:
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          sparse-checkout: tools/cmd/github_issue_manager
+
+      - name: Setup Go
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: tools/cmd/github_issue_manager/go.mod
+
+      - name: Build issue manager
+        working-directory: tools/cmd/github_issue_manager
+        run: go build -o "${{ github.workspace }}/github_issue_manager" .
+
+      - name: Close declined issues
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ./github_issue_manager -v \
+            --owner "${{ github.repository_owner }}" \
+            --repo "${{ github.event.repository.name }}" \
+            --issue "${{ github.event.issue.number }}" \
+            close-declined
+
+      - name: Update labels
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ./github_issue_manager -v \
+            --owner "${{ github.repository_owner }}" \
+            --repo "${{ github.event.repository.name }}" \
+            --issue "${{ github.event.issue.number }}" \
+            update-labels
