@@ -264,6 +264,17 @@ helm.template: ## Render the Helm chart templates locally
 helm.sync-crds: manifests ## Copy generated CRDs into the Helm chart
 	cp config/crd/bases/*.yaml $(HELM_CHART_DIR)/crds/
 
+.PHONY: helm.sync-rbac
+helm.sync-rbac: manifests ## Sync generated RBAC rules into the Helm chart ClusterRole
+	@GEN=config/rbac/role.yaml; \
+	CHART=$(HELM_CHART_DIR)/templates/clusterrole.yaml; \
+	sed '/^rules:/q' "$$CHART" > "$$CHART.tmp" && \
+	sed '1,/^rules:/d' "$$GEN" >> "$$CHART.tmp" && \
+	mv "$$CHART.tmp" "$$CHART"
+
+.PHONY: helm.sync
+helm.sync: helm.sync-crds helm.sync-rbac ## Sync all generated resources into the Helm chart
+
 # -------------------------------------------------------------------------------
 # Dependencies
 # -------------------------------------------------------------------------------
