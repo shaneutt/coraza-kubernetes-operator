@@ -18,6 +18,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           sparse-checkout: tools/cmd/github_issue_manager
+          persist-credentials: false
 
       - name: Setup Go
         uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
@@ -31,19 +32,21 @@ jobs:
       - name: Close declined issues
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_EVENT_REPOSITORY_NAME: ${{ github.event.repository.name }}
         run: |
           ./github_issue_manager -v \
             --owner "${{ github.repository_owner }}" \
-            --repo "${{ github.event.repository.name }}" \
+            --repo "${GITHUB_EVENT_REPOSITORY_NAME}" \
             --issue "${{ github.event.issue.number }}" \
             close-declined
 
       - name: Update labels
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_EVENT_REPOSITORY_NAME: ${{ github.event.repository.name }}
         run: |
           ./github_issue_manager -v \
             --owner "${{ github.repository_owner }}" \
-            --repo "${{ github.event.repository.name }}" \
+            --repo "${GITHUB_EVENT_REPOSITORY_NAME}" \
             --issue "${{ github.event.issue.number }}" \
             update-labels
